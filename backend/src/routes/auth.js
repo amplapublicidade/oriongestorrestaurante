@@ -1,15 +1,12 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
-const bcrypt = require('bcryptjs');
+const router = express.Router();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const { body, validationResult } = require('express-validator');
 const { auth, authorize } = require('../middleware/auth');
 const User = require('../models/User');
 
-const router = express.Router();
-
-// @route   POST /api/auth/register
-// @desc    Registrar novo usuário
-// @access  Public
+// Registro de usuário
 router.post('/register', [
   body('name')
     .trim()
@@ -18,13 +15,13 @@ router.post('/register', [
   body('email')
     .isEmail()
     .normalizeEmail()
-    .withMessage('E-mail inválido'),
+    .withMessage('Email inválido'),
   body('password')
     .isLength({ min: 6 })
     .withMessage('Senha deve ter pelo menos 6 caracteres')
 ], async (req, res) => {
   try {
-    // Verificar erros de validação
+    // Validar dados de entrada
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -34,32 +31,20 @@ router.post('/register', [
       });
     }
 
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
-    // Verificar se usuário já existe
-    const existingUser = await User.findByEmail(email);
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        message: 'E-mail já está em uso'
-      });
-    }
-
-    // Criar novo usuário
-    const user = new User({
+    // Criar usuário
+    const user = await User.createUser({
       name,
       email,
-      password,
-      role: role || 'user'
+      password
     });
-
-    await user.save();
 
     // Gerar token JWT
     const token = jwt.sign(
-      { userId: user._id },
+      { userId: user.id, email: user.email },
       process.env.JWT_SECRET || 'fallback_secret',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
 
     res.status(201).json({
@@ -73,27 +58,25 @@ router.post('/register', [
 
   } catch (error) {
     console.error('Erro no registro:', error);
-    res.status(500).json({
+    res.status(400).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: error.message || 'Erro ao criar usuário'
     });
   }
 });
 
-// @route   POST /api/auth/login
-// @desc    Login do usuário
-// @access  Public
+// Login
 router.post('/login', [
   body('email')
     .isEmail()
     .normalizeEmail()
-    .withMessage('E-mail inválido'),
+    .withMessage('Email inválido'),
   body('password')
     .notEmpty()
     .withMessage('Senha é obrigatória')
 ], async (req, res) => {
   try {
-    // Verificar erros de validação
+    // Validar dados de entrada
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -105,41 +88,14 @@ router.post('/login', [
 
     const { email, password } = req.body;
 
-    // Encontrar usuário
-    const user = await User.findByEmail(email).select('+password');
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Credenciais inválidas'
-      });
-    }
-
-    // Verificar se usuário está ativo
-    if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: 'Conta desativada'
-      });
-    }
-
-    // Verificar senha
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Credenciais inválidas'
-      });
-    }
-
-    // Atualizar último login
-    user.lastLogin = new Date();
-    await user.save();
+    // Autenticar usuário
+    const user = await User.authenticateUser(email, password);
 
     // Gerar token JWT
     const token = jwt.sign(
-      { userId: user._id },
+      { userId: user.id, email: user.email },
       process.env.JWT_SECRET || 'fallback_secret',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
 
     res.json({
@@ -153,19 +109,18 @@ router.post('/login', [
 
   } catch (error) {
     console.error('Erro no login:', error);
-    res.status(500).json({
+    res.status(401).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: error.message || 'Credenciais inválidas'
     });
   }
 });
 
-// @route   GET /api/auth/me
-// @desc    Obter dados do usuário logado
-// @access  Private
+// Verificar usuário atual
 router.get('/me', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
+    const user = await User.findByIdWithoutPassword(req.user.userId);
+    
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -187,11 +142,8 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-// @route   PUT /api/auth/profile
-// @desc    Atualizar perfil do usuário
-// @access  Private
-router.put('/profile', [
-  auth,
+// Atualizar perfil
+router.put('/profile', auth, [
   body('name')
     .optional()
     .trim()
@@ -201,9 +153,10 @@ router.put('/profile', [
     .optional()
     .isEmail()
     .normalizeEmail()
-    .withMessage('E-mail inválido')
+    .withMessage('Email inválido')
 ], async (req, res) => {
   try {
+    // Validar dados de entrada
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -213,18 +166,24 @@ router.put('/profile', [
       });
     }
 
-    const { name, email, preferences } = req.body;
+    const { name, email } = req.body;
     const updateData = {};
 
     if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (preferences) updateData.preferences = preferences;
+    if (email) {
+      // Verificar se email já existe
+      const existingUser = await User.findByEmail(email);
+      if (existingUser && existingUser.id !== req.user.userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email já está em uso'
+        });
+      }
+      updateData.email = email;
+    }
 
-    const user = await User.findByIdAndUpdate(
-      req.user.userId,
-      updateData,
-      { new: true, runValidators: true }
-    );
+    // Atualizar usuário
+    const user = await User.update(req.user.userId, updateData);
 
     res.json({
       success: true,
@@ -236,16 +195,13 @@ router.put('/profile', [
     console.error('Erro ao atualizar perfil:', error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: error.message || 'Erro ao atualizar perfil'
     });
   }
 });
 
-// @route   POST /api/auth/change-password
-// @desc    Alterar senha do usuário
-// @access  Private
-router.post('/change-password', [
-  auth,
+// Alterar senha
+router.post('/change-password', auth, [
   body('currentPassword')
     .notEmpty()
     .withMessage('Senha atual é obrigatória'),
@@ -254,6 +210,7 @@ router.post('/change-password', [
     .withMessage('Nova senha deve ter pelo menos 6 caracteres')
 ], async (req, res) => {
   try {
+    // Validar dados de entrada
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -265,26 +222,8 @@ router.post('/change-password', [
 
     const { currentPassword, newPassword } = req.body;
 
-    const user = await User.findById(req.user.userId).select('+password');
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuário não encontrado'
-      });
-    }
-
-    // Verificar senha atual
-    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
-    if (!isCurrentPasswordValid) {
-      return res.status(400).json({
-        success: false,
-        message: 'Senha atual incorreta'
-      });
-    }
-
     // Atualizar senha
-    user.password = newPassword;
-    await user.save();
+    await User.updatePassword(req.user.userId, currentPassword, newPassword);
 
     res.json({
       success: true,
@@ -293,6 +232,25 @@ router.post('/change-password', [
 
   } catch (error) {
     console.error('Erro ao alterar senha:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao alterar senha'
+    });
+  }
+});
+
+// Listar usuários (apenas admin)
+router.get('/users', auth, authorize('admin'), async (req, res) => {
+  try {
+    const users = await User.findAllWithoutPasswords();
+    
+    res.json({
+      success: true,
+      data: { users }
+    });
+
+  } catch (error) {
+    console.error('Erro ao listar usuários:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'

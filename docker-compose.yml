@@ -1,27 +1,4 @@
 services:
-  # MongoDB Database
-  mongodb:
-    image: mongo:6.0
-    container_name: orion-mongodb
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: orionmongo2025
-      MONGO_INITDB_DATABASE: orion_restaurant
-    volumes:
-      - mongodb_data:/data/db
-      - ./mongodb/init:/docker-entrypoint-initdb.d
-    networks:
-      - orion-network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
   # Backend API
   backend:
     build:
@@ -34,17 +11,25 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      MONGODB_URI: mongodb://orion_user:orion_password_2025@mongodb:27017/orion_restaurant?authSource=orion_restaurant
       JWT_SECRET: orion_jwt_secret_key_2025_super_secure
       FRONTEND_URL: http://localhost:8000
+      # Firebase Configuration
+      FIREBASE_TYPE: service_account
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY_ID: ${FIREBASE_PRIVATE_KEY_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      FIREBASE_CLIENT_ID: ${FIREBASE_CLIENT_ID}
+      FIREBASE_AUTH_URI: https://accounts.google.com/o/oauth2/auth
+      FIREBASE_TOKEN_URI: https://oauth2.googleapis.com/token
+      FIREBASE_AUTH_PROVIDER_X509_CERT_URL: https://www.googleapis.com/oauth2/v1/certs
+      FIREBASE_CLIENT_X509_CERT_URL: ${FIREBASE_CLIENT_X509_CERT_URL}
+      FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL}
     volumes:
       - ./backend:/app
       - /app/node_modules
     networks:
       - orion-network
-    depends_on:
-      mongodb:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
@@ -77,10 +62,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-
-volumes:
-  mongodb_data:
-    driver: local
 
 networks:
   orion-network:

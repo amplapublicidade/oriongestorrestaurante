@@ -1,85 +1,120 @@
-const mongoose = require('mongoose');
+const BaseModel = require('./BaseModel');
 const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Nome é obrigatório'],
-    trim: true,
-    maxlength: [100, 'Nome não pode ter mais de 100 caracteres']
-  },
-  email: {
-    type: String,
-    required: [true, 'E-mail é obrigatório'],
-    unique: true,
-    lowercase: true,
-    trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'E-mail inválido']
-  },
-  password: {
-    type: String,
-    required: [true, 'Senha é obrigatória'],
-    minlength: [6, 'Senha deve ter pelo menos 6 caracteres']
-  },
-  role: {
-    type: String,
-    enum: ['admin', 'manager', 'user'],
-    default: 'user'
-  },
-  avatar: {
-    type: String,
-    default: ''
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  lastLogin: {
-    type: Date
-  },
-  preferences: {
-    theme: {
-      type: String,
-      enum: ['light', 'dark'],
-      default: 'light'
-    },
-    language: {
-      type: String,
-      default: 'pt-BR'
+class User extends BaseModel {
+  constructor() {
+    super('users');
+  }
+
+  // Criar usuário com senha criptografada
+  async createUser(userData) {
+    try {
+      // Verificar se email já existe
+      const existingUser = await this.findByEmail(userData.email);
+      if (existingUser) {
+        throw new Error('Email já está em uso');
+      }
+
+      // Criptografar senha
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
+
+      // Criar usuário
+      const user = await this.create({
+        name: userData.name,
+        email: userData.email.toLowerCase(),
+        password: hashedPassword,
+        role: userData.role || 'user',
+        isActive: true,
+        lastLogin: null
+      });
+
+      // Remover senha do retorno
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    } catch (error) {
+      throw error;
     }
   }
-}, {
-  timestamps: true
-});
 
-// Hash da senha antes de salvar
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(12);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+  // Autenticar usuário
+  async authenticateUser(email, password) {
+    try {
+      const user = await this.findByEmail(email.toLowerCase());
+      if (!user) {
+        throw new Error('Usuário não encontrado');
+      }
+
+      if (!user.isActive) {
+        throw new Error('Conta desativada');
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        throw new Error('Senha incorreta');
+      }
+
+      // Atualizar último login
+      await this.update(user.id, { lastLogin: new Date() });
+
+      // Remover senha do retorno
+      const { password: _, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    } catch (error) {
+      throw error;
+    }
   }
-});
 
-// Método para comparar senha
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
-};
+  // Atualizar senha
+  async updatePassword(userId, currentPassword, newPassword) {
+    try {
+      const user = await this.findById(userId);
+      if (!user) {
+        throw new Error('Usuário não encontrado');
+      }
 
-// Método para remover senha do output
-userSchema.methods.toJSON = function() {
-  const userObject = this.toObject();
-  delete userObject.password;
-  return userObject;
-};
+      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isCurrentPasswordValid) {
+        throw new Error('Senha atual incorreta');
+      }
 
-// Método estático para encontrar por email
-userSchema.statics.findByEmail = function(email) {
-  return this.findOne({ email: email.toLowerCase() });
-};
+      const saltRounds = 12;
+      const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
-module.exports = mongoose.model('User', userSchema); 
+      await this.update(userId, { password: hashedNewPassword });
+      return { success: true };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Buscar usuário por ID (sem senha)
+  async findByIdWithoutPassword(id) {
+    try {
+      const user = await this.findById(id);
+      if (!user) {
+        return null;
+      }
+
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Buscar todos os usuários (sem senhas)
+  async findAllWithoutPasswords(limit = 100) {
+    try {
+      const users = await this.findAll(limit);
+      return users.map(user => {
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+module.exports = new User(); 

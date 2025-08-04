@@ -1,51 +1,30 @@
 const express = require('express');
 const router = express.Router();
+const { body, validationResult } = require('express-validator');
 const { auth, authorize } = require('../middleware/auth');
 const Supplier = require('../models/Supplier');
-const { body, validationResult } = require('express-validator');
 
-// Middleware de validação
-const validateSupplier = [
-  body('name').trim().isLength({ min: 2 }).withMessage('Nome deve ter pelo menos 2 caracteres'),
-  body('email').isEmail().withMessage('Email inválido'),
-  body('phone').optional().isMobilePhone('pt-BR').withMessage('Telefone inválido'),
-  body('address').optional().isLength({ min: 5 }).withMessage('Endereço deve ter pelo menos 5 caracteres'),
-  body('cnpj').optional().isLength({ min: 14, max: 18 }).withMessage('CNPJ inválido')
-];
-
-// GET /api/suppliers - Listar fornecedores
+// Listar todos os fornecedores
 router.get('/', auth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '' } = req.query;
+    const { category, isActive, limit } = req.query;
+    const filters = {};
     
-    const query = {};
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } }
-      ];
-    }
+    if (category) filters.category = category;
+    if (isActive !== undefined) filters.isActive = isActive === 'true';
+    if (limit) filters.limit = parseInt(limit);
 
-    const suppliers = await Supplier.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .exec();
-
-    const count = await Supplier.countDocuments(query);
+    const suppliers = filters.category || filters.isActive !== undefined 
+      ? await Supplier.findWithFilters(filters)
+      : await Supplier.findAll(parseInt(limit) || 100);
 
     res.json({
       success: true,
-      data: {
-        suppliers,
-        totalPages: Math.ceil(count / limit),
-        currentPage: page,
-        total: count
-      }
+      data: { suppliers }
     });
+
   } catch (error) {
-    console.error('Erro ao buscar fornecedores:', error);
+    console.error('Erro ao listar fornecedores:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
@@ -53,7 +32,7 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// GET /api/suppliers/:id - Buscar fornecedor por ID
+// Buscar fornecedor por ID
 router.get('/:id', auth, async (req, res) => {
   try {
     const supplier = await Supplier.findById(req.params.id);
@@ -69,6 +48,7 @@ router.get('/:id', auth, async (req, res) => {
       success: true,
       data: { supplier }
     });
+
   } catch (error) {
     console.error('Erro ao buscar fornecedor:', error);
     res.status(500).json({
@@ -78,9 +58,23 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// POST /api/suppliers - Criar fornecedor
-router.post('/', [auth, ...validateSupplier], async (req, res) => {
+// Criar novo fornecedor
+router.post('/', auth, [
+  body('name')
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Nome deve ter entre 2 e 100 caracteres'),
+  body('phone')
+    .optional()
+    .matches(/^\(\d{2}\)\s\d{4,5}-\d{4}$/)
+    .withMessage('Telefone deve estar no formato (11) 99999-9999'),
+  body('email')
+    .optional()
+    .isEmail()
+    .withMessage('Email inválido')
+], async (req, res) => {
   try {
+    // Validar dados de entrada
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -90,46 +84,41 @@ router.post('/', [auth, ...validateSupplier], async (req, res) => {
       });
     }
 
-    const { name, email, phone, address, cnpj, notes } = req.body;
-
-    // Verificar se email já existe
-    const existingSupplier = await Supplier.findOne({ email });
-    if (existingSupplier) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email já cadastrado'
-      });
-    }
-
-    const supplier = new Supplier({
-      name,
-      email,
-      phone,
-      address,
-      cnpj,
-      notes,
-      createdBy: req.user.id
-    });
-
-    await supplier.save();
+    const supplier = await Supplier.createSupplier(req.body);
 
     res.status(201).json({
       success: true,
       message: 'Fornecedor criado com sucesso',
       data: { supplier }
     });
+
   } catch (error) {
     console.error('Erro ao criar fornecedor:', error);
-    res.status(500).json({
+    res.status(400).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: error.message || 'Erro ao criar fornecedor'
     });
   }
 });
 
-// PUT /api/suppliers/:id - Atualizar fornecedor
-router.put('/:id', [auth, ...validateSupplier], async (req, res) => {
+// Atualizar fornecedor
+router.put('/:id', auth, [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Nome deve ter entre 2 e 100 caracteres'),
+  body('phone')
+    .optional()
+    .matches(/^\(\d{2}\)\s\d{4,5}-\d{4}$/)
+    .withMessage('Telefone deve estar no formato (11) 99999-9999'),
+  body('email')
+    .optional()
+    .isEmail()
+    .withMessage('Email inválido')
+], async (req, res) => {
   try {
+    // Validar dados de entrada
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -139,8 +128,8 @@ router.put('/:id', [auth, ...validateSupplier], async (req, res) => {
       });
     }
 
-    const supplier = await Supplier.findById(req.params.id);
-    
+    const supplier = await Supplier.update(req.params.id, req.body);
+
     if (!supplier) {
       return res.status(404).json({
         success: false,
@@ -148,36 +137,40 @@ router.put('/:id', [auth, ...validateSupplier], async (req, res) => {
       });
     }
 
-    const { name, email, phone, address, cnpj, notes } = req.body;
-
-    // Verificar se email já existe (exceto para o próprio fornecedor)
-    if (email !== supplier.email) {
-      const existingSupplier = await Supplier.findOne({ email });
-      if (existingSupplier) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email já cadastrado'
-        });
-      }
-    }
-
-    supplier.name = name;
-    supplier.email = email;
-    supplier.phone = phone;
-    supplier.address = address;
-    supplier.cnpj = cnpj;
-    supplier.notes = notes;
-    supplier.updatedBy = req.user.id;
-
-    await supplier.save();
-
     res.json({
       success: true,
       message: 'Fornecedor atualizado com sucesso',
       data: { supplier }
     });
+
   } catch (error) {
     console.error('Erro ao atualizar fornecedor:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao atualizar fornecedor'
+    });
+  }
+});
+
+// Deletar fornecedor
+router.delete('/:id', auth, authorize('admin', 'manager'), async (req, res) => {
+  try {
+    const result = await Supplier.delete(req.params.id);
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: 'Fornecedor não encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Fornecedor deletado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('Erro ao deletar fornecedor:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
@@ -185,11 +178,64 @@ router.put('/:id', [auth, ...validateSupplier], async (req, res) => {
   }
 });
 
-// DELETE /api/suppliers/:id - Deletar fornecedor
-router.delete('/:id', auth, async (req, res) => {
+// Atualizar rating do fornecedor
+router.patch('/:id/rating', auth, [
+  body('rating')
+    .isFloat({ min: 0, max: 5 })
+    .withMessage('Rating deve ser um número entre 0 e 5')
+], async (req, res) => {
   try {
-    const supplier = await Supplier.findById(req.params.id);
-    
+    // Validar dados de entrada
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Dados inválidos',
+        errors: errors.array()
+      });
+    }
+
+    const supplier = await Supplier.updateRating(req.params.id, req.body.rating);
+
+    res.json({
+      success: true,
+      message: 'Rating atualizado com sucesso',
+      data: { supplier }
+    });
+
+  } catch (error) {
+    console.error('Erro ao atualizar rating:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao atualizar rating'
+    });
+  }
+});
+
+// Buscar fornecedores por categoria
+router.get('/category/:category', auth, async (req, res) => {
+  try {
+    const suppliers = await Supplier.findByCategory(req.params.category);
+
+    res.json({
+      success: true,
+      data: { suppliers }
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar fornecedores por categoria:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+});
+
+// Buscar fornecedor por CNPJ
+router.get('/cnpj/:cnpj', auth, async (req, res) => {
+  try {
+    const supplier = await Supplier.findByCNPJ(req.params.cnpj);
+
     if (!supplier) {
       return res.status(404).json({
         success: false,
@@ -197,14 +243,13 @@ router.delete('/:id', auth, async (req, res) => {
       });
     }
 
-    await Supplier.findByIdAndDelete(req.params.id);
-
     res.json({
       success: true,
-      message: 'Fornecedor deletado com sucesso'
+      data: { supplier }
     });
+
   } catch (error) {
-    console.error('Erro ao deletar fornecedor:', error);
+    console.error('Erro ao buscar fornecedor por CNPJ:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'

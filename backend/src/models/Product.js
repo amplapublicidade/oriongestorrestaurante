@@ -1,139 +1,143 @@
-const mongoose = require('mongoose');
+const BaseModel = require('./BaseModel');
 
-const productSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Nome do produto é obrigatório'],
-    trim: true,
-    maxlength: [100, 'Nome não pode ter mais de 100 caracteres']
-  },
-  description: {
-    type: String,
-    trim: true,
-    maxlength: [500, 'Descrição não pode ter mais de 500 caracteres']
-  },
-  category: {
-    type: String,
-    required: [true, 'Categoria é obrigatória'],
-    enum: ['carnes', 'vegetais', 'frutas', 'graos', 'laticinios', 'bebidas', 'temperos', 'outros']
-  },
-  unit: {
-    type: String,
-    required: [true, 'Unidade é obrigatória'],
-    enum: ['kg', 'g', 'L', 'ml', 'unidade', 'caixa', 'pacote']
-  },
-  supplier: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Supplier',
-    required: [true, 'Fornecedor é obrigatório']
-  },
-  price: {
-    type: Number,
-    required: [true, 'Preço é obrigatório'],
-    min: [0, 'Preço não pode ser negativo']
-  },
-  cost: {
-    type: Number,
-    min: [0, 'Custo não pode ser negativo']
-  },
-  minStock: {
-    type: Number,
-    default: 0,
-    min: [0, 'Estoque mínimo não pode ser negativo']
-  },
-  maxStock: {
-    type: Number,
-    min: [0, 'Estoque máximo não pode ser negativo']
-  },
-  currentStock: {
-    type: Number,
-    default: 0,
-    min: [0, 'Estoque atual não pode ser negativo']
-  },
-  barcode: {
-    type: String,
-    unique: true,
-    sparse: true
-  },
-  sku: {
-    type: String,
-    unique: true,
-    sparse: true
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  tags: [{
-    type: String,
-    trim: true
-  }],
-  nutritionalInfo: {
-    calories: Number,
-    protein: Number,
-    carbs: Number,
-    fat: Number,
-    fiber: Number
-  },
-  allergens: [{
-    type: String,
-    enum: ['gluten', 'lactose', 'nuts', 'shellfish', 'eggs', 'soy']
-  }],
-  storageConditions: {
-    temperature: {
-      min: Number,
-      max: Number
-    },
-    humidity: {
-      min: Number,
-      max: Number
-    },
-    location: String
-  },
-  expirationDays: {
-    type: Number,
-    min: [1, 'Dias para expiração deve ser pelo menos 1']
+class Product extends BaseModel {
+  constructor() {
+    super('products');
   }
-}, {
-  timestamps: true
-});
 
-// Indexes
-productSchema.index({ name: 1 });
-productSchema.index({ category: 1 });
-productSchema.index({ supplier: 1 });
-productSchema.index({ isActive: 1 });
-productSchema.index({ currentStock: 1 });
+  // Criar produto
+  async createProduct(productData) {
+    try {
+      // Verificar se produto com mesmo nome já existe
+      const existingProducts = await this.findWhere('name', '==', productData.name);
+      if (existingProducts.length > 0) {
+        throw new Error('Produto com este nome já existe');
+      }
 
-// Virtual para status do estoque
-productSchema.virtual('stockStatus').get(function() {
-  if (this.currentStock <= this.minStock) return 'low';
-  if (this.currentStock >= this.maxStock) return 'high';
-  return 'normal';
-});
+      const product = await this.create({
+        name: productData.name,
+        description: productData.description || '',
+        price: parseFloat(productData.price) || 0,
+        cost: parseFloat(productData.cost) || 0,
+        category: productData.category || 'Geral',
+        stock: parseInt(productData.stock) || 0,
+        minStock: parseInt(productData.minStock) || 0,
+        unit: productData.unit || 'un',
+        barcode: productData.barcode || '',
+        isActive: true,
+        supplierId: productData.supplierId || null,
+        image: productData.image || ''
+      });
 
-// Método para adicionar estoque
-productSchema.methods.addStock = function(quantity, reason = 'manual') {
-  this.currentStock += quantity;
-  return this.save();
-};
-
-// Método para remover estoque
-productSchema.methods.removeStock = function(quantity, reason = 'manual') {
-  if (this.currentStock < quantity) {
-    throw new Error('Estoque insuficiente');
+      return product;
+    } catch (error) {
+      throw error;
+    }
   }
-  this.currentStock -= quantity;
-  return this.save();
-};
 
-// Middleware para popular supplier automaticamente
-productSchema.pre(/^find/, function(next) {
-  this.populate({
-    path: 'supplier',
-    select: 'name contact.phone contact.email'
-  });
-  next();
-});
+  // Atualizar estoque
+  async updateStock(productId, newStock) {
+    try {
+      const product = await this.findById(productId);
+      if (!product) {
+        throw new Error('Produto não encontrado');
+      }
 
-module.exports = mongoose.model('Product', productSchema); 
+      await this.update(productId, { 
+        stock: parseInt(newStock),
+        updatedAt: new Date()
+      });
+
+      return await this.findById(productId);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Buscar produtos por categoria
+  async findByCategory(category) {
+    try {
+      return await this.findWhere('category', '==', category);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Buscar produtos com estoque baixo
+  async findLowStock() {
+    try {
+      const products = await this.findAll();
+      return products.filter(product => product.stock <= product.minStock);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Buscar produtos ativos
+  async findActive() {
+    try {
+      return await this.findWhere('isActive', '==', true);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Buscar por fornecedor
+  async findBySupplier(supplierId) {
+    try {
+      return await this.findWhere('supplierId', '==', supplierId);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Buscar por código de barras
+  async findByBarcode(barcode) {
+    try {
+      const products = await this.findWhere('barcode', '==', barcode);
+      return products.length > 0 ? products[0] : null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Buscar produtos com filtros avançados
+  async findWithFilters(filters = {}) {
+    try {
+      let query = this.collection;
+
+      // Aplicar filtros
+      if (filters.category) {
+        query = query.where('category', '==', filters.category);
+      }
+      if (filters.isActive !== undefined) {
+        query = query.where('isActive', '==', filters.isActive);
+      }
+      if (filters.supplierId) {
+        query = query.where('supplierId', '==', filters.supplierId);
+      }
+      if (filters.minPrice !== undefined) {
+        query = query.where('price', '>=', parseFloat(filters.minPrice));
+      }
+      if (filters.maxPrice !== undefined) {
+        query = query.where('price', '<=', parseFloat(filters.maxPrice));
+      }
+
+      // Ordenar e limitar
+      query = query.orderBy('createdAt', 'desc');
+      if (filters.limit) {
+        query = query.limit(parseInt(filters.limit));
+      }
+
+      const snapshot = await query.get();
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+module.exports = new Product(); 
