@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -12,7 +12,8 @@ import {
   ArrowRightOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
-  BellIcon
+  BellIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
 const Layout = ({ children }) => {
@@ -21,6 +22,7 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef(null);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -33,9 +35,24 @@ const Layout = ({ children }) => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+    setUserDropdownOpen(false);
   };
 
   const isCurrentPath = (path) => location.pathname === path;
+
+  // Fechar dropdown quando clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+        setUserDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,13 +101,13 @@ const Layout = ({ children }) => {
 
           {/* User section */}
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
-            <div className="relative">
+            <div className="relative" ref={userDropdownRef}>
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                 className="flex w-full items-center text-left text-sm text-gray-700 hover:bg-gray-50 rounded-md p-2 transition-colors"
               >
                 <div className="flex-shrink-0">
-                  <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
                     <span className="text-white text-sm font-medium">
                       {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                     </span>
@@ -100,15 +117,41 @@ const Layout = ({ children }) => {
                   <p className="font-medium text-gray-900 truncate">{user?.name}</p>
                   <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                 </div>
+                <ChevronDownIcon className={`h-4 w-4 text-gray-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {/* User Dropdown */}
               {userDropdownOpen && (
-                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5">
-                  <div className="py-1">
+                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 border border-gray-200">
+                  <div className="py-2">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                      <p className="text-xs text-gray-500">{user?.email}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        // Navegar para perfil (implementar depois)
+                        setUserDropdownOpen(false);
+                      }}
+                      className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <UserIcon className="mr-3 h-4 w-4" />
+                      Meu Perfil
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Navegar para configurações (implementar depois)
+                        setUserDropdownOpen(false);
+                      }}
+                      className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <Cog6ToothIcon className="mr-3 h-4 w-4" />
+                      Configurações
+                    </button>
+                    <div className="border-t border-gray-100 my-1"></div>
                     <button
                       onClick={handleLogout}
-                      className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
                       Sair
@@ -169,6 +212,30 @@ const Layout = ({ children }) => {
               );
             })}
           </nav>
+
+          {/* Mobile User section */}
+          <div className="flex-shrink-0 border-t border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-3 flex-1 min-w-0">
+                <p className="font-medium text-gray-900 truncate">{user?.name}</p>
+                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center mt-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+            >
+              <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
+              Sair
+            </button>
+          </div>
         </div>
       </div>
 
@@ -195,9 +262,65 @@ const Layout = ({ children }) => {
             {/* Right side */}
             <div className="flex items-center space-x-4">
               {/* Notifications */}
-              <button className="text-gray-400 hover:text-gray-600">
+              <button className="text-gray-400 hover:text-gray-600 relative">
                 <BellIcon className="h-6 w-6" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
               </button>
+
+              {/* Desktop user menu */}
+              <div className="hidden lg:block relative" ref={userDropdownRef}>
+                <button
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  className="flex items-center text-sm text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                  <span className="ml-2 font-medium">{user?.name}</span>
+                  <ChevronDownIcon className={`ml-1 h-4 w-4 text-gray-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 border border-gray-200">
+                    <div className="py-2">
+                      <div className="px-4 py-2 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                        <p className="text-xs text-gray-500">{user?.email}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          // Navegar para perfil (implementar depois)
+                          setUserDropdownOpen(false);
+                        }}
+                        className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <UserIcon className="mr-3 h-4 w-4" />
+                        Meu Perfil
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Navegar para configurações (implementar depois)
+                          setUserDropdownOpen(false);
+                        }}
+                        className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <Cog6ToothIcon className="mr-3 h-4 w-4" />
+                        Configurações
+                      </button>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <button
+                        onClick={handleLogout}
+                        className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
+                        Sair
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Mobile user menu */}
               <div className="lg:hidden relative">
@@ -205,7 +328,7 @@ const Layout = ({ children }) => {
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                   className="flex items-center text-sm text-gray-700"
                 >
-                  <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
                     <span className="text-white text-sm font-medium">
                       {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                     </span>
@@ -213,15 +336,15 @@ const Layout = ({ children }) => {
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5">
-                    <div className="py-1">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 border border-gray-200">
+                    <div className="py-2">
                       <div className="px-4 py-2 border-b border-gray-100">
                         <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                         <p className="text-xs text-gray-500">{user?.email}</p>
                       </div>
                       <button
                         onClick={handleLogout}
-                        className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                       >
                         <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
                         Sair

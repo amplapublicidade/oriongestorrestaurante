@@ -8,7 +8,7 @@ require('dotenv').config();
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/orion_restaurant', {
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://orion_user:orion_password_2025@localhost:27017/orion_restaurant?authSource=orion_restaurant', {
       useNewUrlParser: true,
       useUnifiedTopology: true
     });

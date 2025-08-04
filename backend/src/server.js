@@ -34,7 +34,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('combined'));
 
 // Conexão com MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/orion_restaurant', {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://orion_user:orion_password_2025@localhost:27017/orion_restaurant?authSource=orion_restaurant', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })

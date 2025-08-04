@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 const Login = () => {
   const { login, register, isAuthenticated } = useAuth();
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -61,51 +64,60 @@ const Login = () => {
     }
   };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {isRegisterMode ? 'Criar conta' : 'Entrar na sua conta'}
+        {/* Logo e Título */}
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-4">
+            <span className="text-2xl text-white">📦</span>
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            {isRegisterMode ? 'Criar conta' : 'Bem-vindo de volta'}
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            {isRegisterMode ? 'Já tem uma conta?' : 'Não tem uma conta?'}{' '}
-            <button
-              type="button"
-              onClick={() => setIsRegisterMode(!isRegisterMode)}
-              className="font-medium text-blue-600 hover:text-blue-500"
-            >
-              {isRegisterMode ? 'Faça login' : 'Registre-se'}
-            </button>
+          <p className="text-gray-600">
+            {isRegisterMode 
+              ? 'Crie sua conta para começar a gerenciar seu restaurante' 
+              : 'Entre na sua conta para continuar'
+            }
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
+
+        {/* Formulário */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-8">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Nome (apenas no registro) */}
             {isRegisterMode && (
               <div>
-                <label htmlFor="name" className="sr-only">
-                  Nome
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Nome completo
                 </label>
                 <input
                   id="name"
                   name="name"
                   type="text"
                   required={isRegisterMode}
-                  className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
-                    errors.name ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
-                  placeholder="Nome completo"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                    errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  placeholder="Digite seu nome completo"
                   value={formData.name}
                   onChange={handleInputChange}
                 />
                 {errors.name && (
-                  <p className="text-red-500 text-xs mt-1 px-3">{errors.name}</p>
+                  <p className="text-red-500 text-sm mt-1">{errors.name}</p>
                 )}
               </div>
             )}
+
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="sr-only">
-                Email
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                E-mail
               </label>
               <input
                 id="email"
@@ -113,47 +125,84 @@ const Login = () => {
                 type="email"
                 autoComplete="email"
                 required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
-                  errors.email ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 ${
-                  isRegisterMode ? '' : 'rounded-t-md'
-                } focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
-                placeholder="Email"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                  errors.email ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                }`}
+                placeholder="Digite seu e-mail"
                 value={formData.email}
                 onChange={handleInputChange}
               />
               {errors.email && (
-                <p className="text-red-500 text-xs mt-1 px-3">{errors.email}</p>
+                <p className="text-red-500 text-sm mt-1">{errors.email}</p>
               )}
             </div>
+
+            {/* Senha */}
             <div>
-              <label htmlFor="password" className="sr-only">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Senha
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
-                  errors.password ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
-                placeholder="Senha"
-                value={formData.password}
-                onChange={handleInputChange}
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete={isRegisterMode ? 'new-password' : 'current-password'}
+                  required
+                  className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                    errors.password ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  placeholder="Digite sua senha"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                />
+                <button
+                  type="button"
+                  onClick={togglePasswordVisibility}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? (
+                    <EyeSlashIcon className="h-5 w-5" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
               {errors.password && (
-                <p className="text-red-500 text-xs mt-1 px-3">{errors.password}</p>
+                <p className="text-red-500 text-sm mt-1">{errors.password}</p>
               )}
             </div>
-          </div>
 
-          <div>
+            {/* Opções adicionais (apenas no login) */}
+            {!isRegisterMode && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember-me"
+                    name="remember-me"
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                    Lembrar de mim
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+                >
+                  Esqueci minha senha
+                </button>
+              </div>
+            )}
+
+            {/* Botão de submit */}
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {loading ? (
                 <div className="flex items-center">
@@ -164,8 +213,48 @@ const Login = () => {
                 isRegisterMode ? 'Criar conta' : 'Entrar'
               )}
             </button>
+          </form>
+
+          {/* Divisor */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">ou</span>
+              </div>
+            </div>
           </div>
-        </form>
+
+          {/* Alternar entre login e registro */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              {isRegisterMode ? 'Já tem uma conta?' : 'Não tem uma conta?'}{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegisterMode(!isRegisterMode);
+                  setErrors({});
+                  setFormData({ name: '', email: '', password: '' });
+                }}
+                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              >
+                {isRegisterMode ? 'Faça login' : 'Registre-se'}
+              </button>
+            </p>
+          </div>
+        </div>
+
+        {/* Informações adicionais */}
+        <div className="text-center">
+          <p className="text-xs text-gray-500">
+            Ao continuar, você concorda com nossos{' '}
+            <a href="#" className="text-blue-600 hover:text-blue-500">Termos de Serviço</a>
+            {' '}e{' '}
+            <a href="#" className="text-blue-600 hover:text-blue-500">Política de Privacidade</a>
+          </p>
+        </div>
       </div>
     </div>
   );

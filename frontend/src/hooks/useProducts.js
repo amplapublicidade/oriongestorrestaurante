@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import axios from 'axios';
+import api from '../config/axios';
 import toast from 'react-hot-toast';
 
 // Função para buscar produtos da API
 const fetchProducts = async () => {
-  const { data } = await axios.get('/api/products');
+  const { data } = await api.get('/products');
   return data.data.products;
 };
 
@@ -17,7 +17,7 @@ export const useProducts = () => {
 
   // Mutação para adicionar um novo produto
   const addProductMutation = useMutation(
-    (newProduct) => axios.post('/api/products', newProduct),
+    (newProduct) => api.post('/products', newProduct),
     {
       onSuccess: () => {
         // Invalida o cache para forçar uma nova busca
@@ -32,7 +32,7 @@ export const useProducts = () => {
 
   // Mutação para atualizar um produto
   const updateProductMutation = useMutation(
-    ({ id, productData }) => axios.put(`/api/products/${id}`, productData),
+    ({ id, productData }) => api.put(`/products/${id}`, productData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('products');
@@ -46,7 +46,7 @@ export const useProducts = () => {
 
   // Mutação para deletar um produto
   const deleteProductMutation = useMutation(
-    (id) => axios.delete(`/api/products/${id}`),
+    (id) => api.delete(`/products/${id}`),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('products');
@@ -60,7 +60,7 @@ export const useProducts = () => {
 
   // Mutação para atualizar estoque
   const updateStockMutation = useMutation(
-    ({ id, stockData }) => axios.patch(`/api/products/${id}/stock`, stockData),
+    ({ id, stockData }) => api.patch(`/products/${id}/stock`, stockData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('products');

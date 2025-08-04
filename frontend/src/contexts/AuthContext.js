@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/axios';
 import toast from 'react-hot-toast';
 
 const AuthContext = createContext({});
@@ -17,35 +17,26 @@ const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // Configurar axios interceptors
+  // Verificar se usuário está logado ao carregar app
   useEffect(() => {
-    // Request interceptor para adicionar token
-    const requestInterceptor = axios.interceptors.request.use(
-      (config) => {
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // Response interceptor para lidar com erros de autenticação
-    const responseInterceptor = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          logout();
-          toast.error('Sessão expirada. Faça login novamente.');
-        }
-        return Promise.reject(error);
+    const checkAuth = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
       }
-    );
 
-    return () => {
-      axios.interceptors.request.eject(requestInterceptor);
-      axios.interceptors.response.eject(responseInterceptor);
+      try {
+        const response = await api.get('/auth/me');
+        setUser(response.data.data.user);
+      } catch (error) {
+        localStorage.removeItem('token');
+        setToken(null);
+      } finally {
+        setLoading(false);
+      }
     };
+
+    checkAuth();
   }, [token]);
 
   // Verificar se usuário está logado ao carregar app
@@ -72,7 +63,7 @@ const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('/api/auth/login', {
+      const response = await api.post('/auth/login', {
         email,
         password
       });
@@ -95,7 +86,7 @@ const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      const response = await axios.post('/api/auth/register', {
+      const response = await api.post('/auth/register', {
         name,
         email,
         password
@@ -126,7 +117,7 @@ const AuthProvider = ({ children }) => {
 
   const updateProfile = async (userData) => {
     try {
-      const response = await axios.put('/api/auth/profile', userData);
+      const response = await api.put('/auth/profile', userData);
       setUser(response.data.data.user);
       toast.success('Perfil atualizado com sucesso!');
       return { success: true };
@@ -139,7 +130,7 @@ const AuthProvider = ({ children }) => {
 
   const changePassword = async (currentPassword, newPassword) => {
     try {
-      await axios.post('/api/auth/change-password', {
+      await api.post('/auth/change-password', {
         currentPassword,
         newPassword
       });

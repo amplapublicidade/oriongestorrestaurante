@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import axios from 'axios';
+import api from '../config/axios';
 import toast from 'react-hot-toast';
 
 // Função para buscar fornecedores da API
 const fetchSuppliers = async () => {
-  const { data } = await axios.get('/api/suppliers');
+  const { data } = await api.get('/suppliers');
   return data.data.suppliers;
 };
 
@@ -17,7 +17,7 @@ export const useSuppliers = () => {
 
   // Mutação para adicionar um novo fornecedor
   const addSupplierMutation = useMutation(
-    (newSupplier) => axios.post('/api/suppliers', newSupplier),
+    (newSupplier) => api.post('/suppliers', newSupplier),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('suppliers');
@@ -31,7 +31,7 @@ export const useSuppliers = () => {
 
   // Mutação para atualizar um fornecedor
   const updateSupplierMutation = useMutation(
-    ({ id, supplierData }) => axios.put(`/api/suppliers/${id}`, supplierData),
+    ({ id, supplierData }) => api.put(`/suppliers/${id}`, supplierData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('suppliers');
@@ -45,7 +45,7 @@ export const useSuppliers = () => {
 
   // Mutação para deletar um fornecedor
   const deleteSupplierMutation = useMutation(
-    (id) => axios.delete(`/api/suppliers/${id}`),
+    (id) => api.delete(`/suppliers/${id}`),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('suppliers');
