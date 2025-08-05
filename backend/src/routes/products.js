@@ -7,7 +7,7 @@ const { db } = require('../config/firebase');
 // Listar todos os produtos
 router.get('/', auth, async (req, res) => {
   try {
-    const { category, isActive, limit = 100 } = req.query;
+    const { category, isActive, limit = 100, lowStock, barcode } = req.query;
     
     let query = db.collection('products');
     
@@ -17,6 +17,9 @@ router.get('/', auth, async (req, res) => {
     }
     if (isActive !== undefined) {
       query = query.where('isActive', '==', isActive === 'true');
+    }
+    if (barcode) {
+      query = query.where('barcode', '==', barcode);
     }
     
     // Ordenar por nome
@@ -29,11 +32,22 @@ router.get('/', auth, async (req, res) => {
     const products = [];
     
     snapshot.forEach(doc => {
-      products.push({
-        id: doc.id,
-        ...doc.data()
-      });
+      const productData = { id: doc.id, ...doc.data() };
+      
+      // Aplicar filtro de estoque baixo na memória se necessário
+      if (lowStock === 'true') {
+        if (productData.stock <= productData.minStock) {
+          products.push(productData);
+        }
+      } else {
+        products.push(productData);
+      }
     });
+
+    // Se estamos filtrando por estoque baixo, ordenar por estoque
+    if (lowStock === 'true') {
+      products.sort((a, b) => a.stock - b.stock);
+    }
 
     res.json({
       success: true,
@@ -290,109 +304,6 @@ router.patch('/:id/stock', auth, [
     res.status(400).json({
       success: false,
       message: error.message || 'Erro ao atualizar estoque'
-    });
-  }
-});
-
-// Buscar produtos por categoria
-router.get('/category/:category', auth, async (req, res) => {
-  try {
-    const snapshot = await db.collection('products')
-      .where('category', '==', req.params.category)
-      .where('isActive', '==', true)
-      .orderBy('name', 'asc')
-      .get();
-
-    const products = [];
-    snapshot.forEach(doc => {
-      products.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-
-    res.json({
-      success: true,
-      data: { products }
-    });
-
-  } catch (error) {
-    console.error('Erro ao buscar produtos por categoria:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor'
-    });
-  }
-});
-
-// Buscar produtos com estoque baixo
-router.get('/low-stock', auth, async (req, res) => {
-  try {
-    const snapshot = await db.collection('products')
-      .where('isActive', '==', true)
-      .get();
-
-    const products = [];
-    snapshot.forEach(doc => {
-      const productData = doc.data();
-      // Filtrar produtos com estoque baixo (estoque <= estoque mínimo)
-      if (productData.stock <= productData.minStock) {
-        products.push({
-          id: doc.id,
-          ...productData
-        });
-      }
-    });
-
-    // Ordenar por estoque (menor primeiro)
-    products.sort((a, b) => a.stock - b.stock);
-
-    res.json({
-      success: true,
-      data: { products }
-    });
-
-  } catch (error) {
-    console.error('Erro ao buscar produtos com estoque baixo:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor'
-    });
-  }
-});
-
-// Buscar produto por código de barras
-router.get('/barcode/:barcode', auth, async (req, res) => {
-  try {
-    const snapshot = await db.collection('products')
-      .where('barcode', '==', req.params.barcode)
-      .where('isActive', '==', true)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
-      return res.status(404).json({
-        success: false,
-        message: 'Produto não encontrado'
-      });
-    }
-
-    const productDoc = snapshot.docs[0];
-    const product = {
-      id: productDoc.id,
-      ...productDoc.data()
-    };
-
-    res.json({
-      success: true,
-      data: { product }
-    });
-
-  } catch (error) {
-    console.error('Erro ao buscar produto por código de barras:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor'
     });
   }
 });

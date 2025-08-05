@@ -7,15 +7,19 @@ const { db } = require('../config/firebase');
 // Listar todos os fornecedores
 router.get('/', auth, async (req, res) => {
   try {
-    const { category, isActive, limit = 100 } = req.query;
+    const { category, isActive, limit = 100, cnpj } = req.query;
 
     let query = db.collection('suppliers');
 
+    // Aplicar filtros
     if (category) {
       query = query.where('category', '==', category);
     }
     if (isActive !== undefined) {
       query = query.where('isActive', '==', isActive === 'true');
+    }
+    if (cnpj) {
+      query = query.where('cnpj', '==', cnpj);
     }
 
     query = query.orderBy('name', 'asc').limit(parseInt(limit));
@@ -251,73 +255,6 @@ router.patch('/:id/rating', auth, [
     res.status(400).json({
       success: false,
       message: error.message || 'Erro ao atualizar rating'
-    });
-  }
-});
-
-// Buscar fornecedores por categoria
-router.get('/category/:category', auth, async (req, res) => {
-  try {
-    const snapshot = await db.collection('suppliers')
-      .where('category', '==', req.params.category)
-      .where('isActive', '==', true)
-      .orderBy('name', 'asc')
-      .get();
-
-    const suppliers = [];
-    snapshot.forEach(doc => {
-      suppliers.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-
-    res.json({
-      success: true,
-      data: { suppliers }
-    });
-
-  } catch (error) {
-    console.error('Erro ao buscar fornecedores por categoria:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor'
-    });
-  }
-});
-
-// Buscar fornecedor por CNPJ
-router.get('/cnpj/:cnpj', auth, async (req, res) => {
-  try {
-    const snapshot = await db.collection('suppliers')
-      .where('cnpj', '==', req.params.cnpj)
-      .where('isActive', '==', true)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
-      return res.status(404).json({
-        success: false,
-        message: 'Fornecedor não encontrado'
-      });
-    }
-
-    const supplierDoc = snapshot.docs[0];
-    const supplier = {
-      id: supplierDoc.id,
-      ...supplierDoc.data()
-    };
-
-    res.json({
-      success: true,
-      data: { supplier }
-    });
-
-  } catch (error) {
-    console.error('Erro ao buscar fornecedor por CNPJ:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor'
     });
   }
 });
