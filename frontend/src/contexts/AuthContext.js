@@ -29,28 +29,7 @@ const AuthProvider = ({ children }) => {
         const response = await api.get('/auth/me');
         setUser(response.data.data.user);
       } catch (error) {
-        localStorage.removeItem('token');
-        setToken(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [token]);
-
-  // Verificar se usuário está logado ao carregar app
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await axios.get('/api/auth/me');
-        setUser(response.data.data.user);
-      } catch (error) {
+        console.error('Erro ao verificar autenticação:', error);
         localStorage.removeItem('token');
         setToken(null);
       } finally {
@@ -78,6 +57,7 @@ const AuthProvider = ({ children }) => {
       return { success: true };
       
     } catch (error) {
+      console.error('Erro no login:', error);
       const message = error.response?.data?.message || 'Erro ao fazer login';
       toast.error(message);
       return { success: false, message };
@@ -102,6 +82,7 @@ const AuthProvider = ({ children }) => {
       return { success: true };
       
     } catch (error) {
+      console.error('Erro no registro:', error);
       const message = error.response?.data?.message || 'Erro ao criar conta';
       toast.error(message);
       return { success: false, message };
@@ -122,6 +103,7 @@ const AuthProvider = ({ children }) => {
       toast.success('Perfil atualizado com sucesso!');
       return { success: true };
     } catch (error) {
+      console.error('Erro ao atualizar perfil:', error);
       const message = error.response?.data?.message || 'Erro ao atualizar perfil';
       toast.error(message);
       return { success: false, message };
@@ -137,6 +119,7 @@ const AuthProvider = ({ children }) => {
       toast.success('Senha alterada com sucesso!');
       return { success: true };
     } catch (error) {
+      console.error('Erro ao alterar senha:', error);
       const message = error.response?.data?.message || 'Erro ao alterar senha';
       toast.error(message);
       return { success: false, message };
