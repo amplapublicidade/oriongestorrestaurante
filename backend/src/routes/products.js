@@ -2,21 +2,38 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const { auth, authorize } = require('../middleware/auth');
-const Product = require('../models/Product');
+const { db } = require('../config/firebase');
 
 // Listar todos os produtos
 router.get('/', auth, async (req, res) => {
   try {
-    const { category, isActive, limit } = req.query;
-    const filters = {};
+    const { category, isActive, limit = 100 } = req.query;
     
-    if (category) filters.category = category;
-    if (isActive !== undefined) filters.isActive = isActive === 'true';
-    if (limit) filters.limit = parseInt(limit);
+    let query = db.collection('products');
+    
+    // Aplicar filtros
+    if (category) {
+      query = query.where('category', '==', category);
+    }
+    if (isActive !== undefined) {
+      query = query.where('isActive', '==', isActive === 'true');
+    }
+    
+    // Ordenar por nome
+    query = query.orderBy('name', 'asc');
+    
+    // Limitar resultados
+    query = query.limit(parseInt(limit));
 
-    const products = filters.category || filters.isActive !== undefined 
-      ? await Product.findWithFilters(filters)
-      : await Product.findAll(parseInt(limit) || 100);
+    const snapshot = await query.get();
+    const products = [];
+    
+    snapshot.forEach(doc => {
+      products.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
 
     res.json({
       success: true,
@@ -35,14 +52,19 @@ router.get('/', auth, async (req, res) => {
 // Buscar produto por ID
 router.get('/:id', auth, async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const productDoc = await db.collection('products').doc(req.params.id).get();
     
-    if (!product) {
+    if (!productDoc.exists) {
       return res.status(404).json({
         success: false,
         message: 'Produto não encontrado'
       });
     }
+
+    const product = {
+      id: productDoc.id,
+      ...productDoc.data()
+    };
 
     res.json({
       success: true,
@@ -87,7 +109,22 @@ router.post('/', auth, [
       });
     }
 
-    const product = await Product.createProduct(req.body);
+    const productData = {
+      ...req.body,
+      stock: req.body.stock || 0,
+      minStock: req.body.minStock || 0,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const productRef = await db.collection('products').add(productData);
+    const productDoc = await productRef.get();
+
+    const product = {
+      id: productDoc.id,
+      ...productDoc.data()
+    };
 
     res.status(201).json({
       success: true,
@@ -135,14 +172,28 @@ router.put('/:id', auth, [
       });
     }
 
-    const product = await Product.update(req.params.id, req.body);
+    const productRef = db.collection('products').doc(req.params.id);
+    const productDoc = await productRef.get();
 
-    if (!product) {
+    if (!productDoc.exists) {
       return res.status(404).json({
         success: false,
         message: 'Produto não encontrado'
       });
     }
+
+    const updateData = {
+      ...req.body,
+      updatedAt: new Date()
+    };
+
+    await productRef.update(updateData);
+    
+    const updatedDoc = await productRef.get();
+    const product = {
+      id: updatedDoc.id,
+      ...updatedDoc.data()
+    };
 
     res.json({
       success: true,
@@ -162,14 +213,17 @@ router.put('/:id', auth, [
 // Deletar produto
 router.delete('/:id', auth, authorize('admin', 'manager'), async (req, res) => {
   try {
-    const result = await Product.delete(req.params.id);
+    const productRef = db.collection('products').doc(req.params.id);
+    const productDoc = await productRef.get();
 
-    if (!result) {
+    if (!productDoc.exists) {
       return res.status(404).json({
         success: false,
         message: 'Produto não encontrado'
       });
     }
+
+    await productRef.delete();
 
     res.json({
       success: true,
@@ -202,7 +256,28 @@ router.patch('/:id/stock', auth, [
       });
     }
 
-    const product = await Product.updateStock(req.params.id, req.body.stock);
+    const productRef = db.collection('products').doc(req.params.id);
+    const productDoc = await productRef.get();
+
+    if (!productDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Produto não encontrado'
+      });
+    }
+
+    const updateData = {
+      stock: req.body.stock,
+      updatedAt: new Date()
+    };
+
+    await productRef.update(updateData);
+    
+    const updatedDoc = await productRef.get();
+    const product = {
+      id: updatedDoc.id,
+      ...updatedDoc.data()
+    };
 
     res.json({
       success: true,
@@ -222,7 +297,19 @@ router.patch('/:id/stock', auth, [
 // Buscar produtos por categoria
 router.get('/category/:category', auth, async (req, res) => {
   try {
-    const products = await Product.findByCategory(req.params.category);
+    const snapshot = await db.collection('products')
+      .where('category', '==', req.params.category)
+      .where('isActive', '==', true)
+      .orderBy('name', 'asc')
+      .get();
+
+    const products = [];
+    snapshot.forEach(doc => {
+      products.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
 
     res.json({
       success: true,
@@ -241,7 +328,24 @@ router.get('/category/:category', auth, async (req, res) => {
 // Buscar produtos com estoque baixo
 router.get('/low-stock', auth, async (req, res) => {
   try {
-    const products = await Product.findLowStock();
+    const snapshot = await db.collection('products')
+      .where('isActive', '==', true)
+      .get();
+
+    const products = [];
+    snapshot.forEach(doc => {
+      const productData = doc.data();
+      // Filtrar produtos com estoque baixo (estoque <= estoque mínimo)
+      if (productData.stock <= productData.minStock) {
+        products.push({
+          id: doc.id,
+          ...productData
+        });
+      }
+    });
+
+    // Ordenar por estoque (menor primeiro)
+    products.sort((a, b) => a.stock - b.stock);
 
     res.json({
       success: true,
@@ -260,14 +364,24 @@ router.get('/low-stock', auth, async (req, res) => {
 // Buscar produto por código de barras
 router.get('/barcode/:barcode', auth, async (req, res) => {
   try {
-    const product = await Product.findByBarcode(req.params.barcode);
+    const snapshot = await db.collection('products')
+      .where('barcode', '==', req.params.barcode)
+      .where('isActive', '==', true)
+      .limit(1)
+      .get();
 
-    if (!product) {
+    if (snapshot.empty) {
       return res.status(404).json({
         success: false,
         message: 'Produto não encontrado'
       });
     }
+
+    const productDoc = snapshot.docs[0];
+    const product = {
+      id: productDoc.id,
+      ...productDoc.data()
+    };
 
     res.json({
       success: true,
