@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Configuração base do axios
 const api = axios.create({
-  baseURL: (window.ENV && window.ENV.REACT_APP_API_URL) || process.env.REACT_APP_API_URL || 'http://backend:3001/api',
+  baseURL: (window.ENV && window.ENV.REACT_APP_API_URL) || process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

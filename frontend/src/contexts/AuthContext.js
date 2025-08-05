@@ -20,14 +20,22 @@ const AuthProvider = ({ children }) => {
   // Verificar se usuário está logado ao carregar app
   useEffect(() => {
     const checkAuth = async () => {
-      if (!token) {
+      const storedToken = localStorage.getItem('token');
+      
+      if (!storedToken) {
         setLoading(false);
         return;
       }
 
       try {
         const response = await api.get('/auth/me');
-        setUser(response.data.data.user);
+        if (response.data.success) {
+          setUser(response.data.data.user);
+          setToken(storedToken);
+        } else {
+          localStorage.removeItem('token');
+          setToken(null);
+        }
       } catch (error) {
         console.error('Erro ao verificar autenticação:', error);
         localStorage.removeItem('token');
@@ -38,7 +46,7 @@ const AuthProvider = ({ children }) => {
     };
 
     checkAuth();
-  }, [token]);
+  }, []);
 
   const login = async (email, password) => {
     try {
@@ -47,14 +55,19 @@ const AuthProvider = ({ children }) => {
         password
       });
 
-      const { user: userData, token: userToken } = response.data.data;
-      
-      setUser(userData);
-      setToken(userToken);
-      localStorage.setItem('token', userToken);
-      
-      toast.success('Login realizado com sucesso!');
-      return { success: true };
+      if (response.data.success) {
+        const { user: userData, token: userToken } = response.data.data;
+        
+        setUser(userData);
+        setToken(userToken);
+        localStorage.setItem('token', userToken);
+        
+        toast.success('Login realizado com sucesso!');
+        return { success: true };
+      } else {
+        toast.error(response.data.message || 'Erro ao fazer login');
+        return { success: false, message: response.data.message };
+      }
       
     } catch (error) {
       console.error('Erro no login:', error);
@@ -72,14 +85,19 @@ const AuthProvider = ({ children }) => {
         password
       });
 
-      const { user: userData, token: userToken } = response.data.data;
-      
-      setUser(userData);
-      setToken(userToken);
-      localStorage.setItem('token', userToken);
-      
-      toast.success('Conta criada com sucesso!');
-      return { success: true };
+      if (response.data.success) {
+        const { user: userData, token: userToken } = response.data.data;
+        
+        setUser(userData);
+        setToken(userToken);
+        localStorage.setItem('token', userToken);
+        
+        toast.success('Conta criada com sucesso!');
+        return { success: true };
+      } else {
+        toast.error(response.data.message || 'Erro ao criar conta');
+        return { success: false, message: response.data.message };
+      }
       
     } catch (error) {
       console.error('Erro no registro:', error);
@@ -99,9 +117,14 @@ const AuthProvider = ({ children }) => {
   const updateProfile = async (userData) => {
     try {
       const response = await api.put('/auth/profile', userData);
-      setUser(response.data.data.user);
-      toast.success('Perfil atualizado com sucesso!');
-      return { success: true };
+      if (response.data.success) {
+        setUser(response.data.data.user);
+        toast.success('Perfil atualizado com sucesso!');
+        return { success: true };
+      } else {
+        toast.error(response.data.message || 'Erro ao atualizar perfil');
+        return { success: false, message: response.data.message };
+      }
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error);
       const message = error.response?.data?.message || 'Erro ao atualizar perfil';
@@ -112,12 +135,17 @@ const AuthProvider = ({ children }) => {
 
   const changePassword = async (currentPassword, newPassword) => {
     try {
-      await api.post('/auth/change-password', {
+      const response = await api.post('/auth/change-password', {
         currentPassword,
         newPassword
       });
-      toast.success('Senha alterada com sucesso!');
-      return { success: true };
+      if (response.data.success) {
+        toast.success('Senha alterada com sucesso!');
+        return { success: true };
+      } else {
+        toast.error(response.data.message || 'Erro ao alterar senha');
+        return { success: false, message: response.data.message };
+      }
     } catch (error) {
       console.error('Erro ao alterar senha:', error);
       const message = error.response?.data?.message || 'Erro ao alterar senha';

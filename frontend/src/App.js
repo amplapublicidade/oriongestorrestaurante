@@ -3,13 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Toaster } from 'react-hot-toast';
 import AuthProvider from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Suppliers from './pages/Suppliers';
-import Inventory from './pages/Inventory';
-import Reports from './pages/Reports';
 
 // Criar cliente React Query
 const queryClient = new QueryClient({
@@ -30,56 +24,7 @@ function App() {
             <Routes>
               {/* Rota pública */}
               <Route path="/login" element={<Login />} />
-              
-              {/* Rotas protegidas */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/products"
-                element={
-                  <ProtectedRoute>
-                    <Products />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/suppliers"
-                element={
-                  <ProtectedRoute>
-                    <Suppliers />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/inventory"
-                element={
-                  <ProtectedRoute>
-                    <Inventory />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/reports"
-                element={
-                  <ProtectedRoute>
-                    <Reports />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/" element={<Login />} />
             </Routes>
             
             {/* Notificações toast */}

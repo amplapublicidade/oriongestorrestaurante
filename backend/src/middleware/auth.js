@@ -47,7 +47,7 @@ const auth = async (req, res, next) => {
 
     // Adicionar dados do usuário ao request
     req.user = {
-      userId: user._id,
+      userId: user.id, // Usar user.id em vez de user._id
       email: user.email,
       role: user.role
     };
@@ -120,7 +120,7 @@ const optionalAuth = async (req, res, next) => {
     
     if (user && user.isActive) {
       req.user = {
-        userId: user._id,
+        userId: user.id, // Usar user.id em vez de user._id
         email: user.email,
         role: user.role
       };
