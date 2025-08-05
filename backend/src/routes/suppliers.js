@@ -2,21 +2,27 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const { auth, authorize } = require('../middleware/auth');
-const Supplier = require('../models/Supplier');
+const { db } = require('../config/firebase');
 
 // Listar todos os fornecedores
 router.get('/', auth, async (req, res) => {
   try {
-    const { category, isActive, limit } = req.query;
-    const filters = {};
-    
-    if (category) filters.category = category;
-    if (isActive !== undefined) filters.isActive = isActive === 'true';
-    if (limit) filters.limit = parseInt(limit);
+    const { category, isActive, limit = 100 } = req.query;
 
-    const suppliers = filters.category || filters.isActive !== undefined 
-      ? await Supplier.findWithFilters(filters)
-      : await Supplier.findAll(parseInt(limit) || 100);
+    let query = db.collection('suppliers');
+
+    if (category) {
+      query = query.where('category', '==', category);
+    }
+    if (isActive !== undefined) {
+      query = query.where('isActive', '==', isActive === 'true');
+    }
+
+    query = query.orderBy('name', 'asc').limit(parseInt(limit));
+
+    const snapshot = await query.get();
+    const suppliers = [];
+    snapshot.forEach(doc => suppliers.push({ id: doc.id, ...doc.data() }));
 
     res.json({
       success: true,
@@ -35,9 +41,9 @@ router.get('/', auth, async (req, res) => {
 // Buscar fornecedor por ID
 router.get('/:id', auth, async (req, res) => {
   try {
-    const supplier = await Supplier.findById(req.params.id);
-    
-    if (!supplier) {
+    const supplierDoc = await db.collection('suppliers').doc(req.params.id).get();
+
+    if (!supplierDoc.exists) {
       return res.status(404).json({
         success: false,
         message: 'Fornecedor não encontrado'
@@ -46,7 +52,7 @@ router.get('/:id', auth, async (req, res) => {
 
     res.json({
       success: true,
-      data: { supplier }
+      data: { supplier: { id: supplierDoc.id, ...supplierDoc.data() } }
     });
 
   } catch (error) {
@@ -84,7 +90,18 @@ router.post('/', auth, [
       });
     }
 
-    const supplier = await Supplier.createSupplier(req.body);
+    const supplierData = {
+      ...req.body,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      rating: req.body.rating || 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const supplierRef = await db.collection('suppliers').add(supplierData);
+    const newDoc = await supplierRef.get();
+
+    const supplier = { id: newDoc.id, ...newDoc.data() };
 
     res.status(201).json({
       success: true,
@@ -128,14 +145,20 @@ router.put('/:id', auth, [
       });
     }
 
-    const supplier = await Supplier.update(req.params.id, req.body);
-
-    if (!supplier) {
+    const supplierRef = db.collection('suppliers').doc(req.params.id);
+    const doc = await supplierRef.get();
+    if (!doc.exists) {
       return res.status(404).json({
         success: false,
         message: 'Fornecedor não encontrado'
       });
     }
+
+    const updateData = { ...req.body, updatedAt: new Date() };
+    await supplierRef.update(updateData);
+
+    const updatedDoc = await supplierRef.get();
+    const supplier = { id: updatedDoc.id, ...updatedDoc.data() };
 
     res.json({
       success: true,
@@ -155,14 +178,17 @@ router.put('/:id', auth, [
 // Deletar fornecedor
 router.delete('/:id', auth, authorize('admin', 'manager'), async (req, res) => {
   try {
-    const result = await Supplier.delete(req.params.id);
+    const supplierRef = db.collection('suppliers').doc(req.params.id);
+    const doc = await supplierRef.get();
 
-    if (!result) {
+    if (!doc.exists) {
       return res.status(404).json({
         success: false,
         message: 'Fornecedor não encontrado'
       });
     }
+
+    await supplierRef.delete();
 
     res.json({
       success: true,
@@ -195,7 +221,24 @@ router.patch('/:id/rating', auth, [
       });
     }
 
-    const supplier = await Supplier.updateRating(req.params.id, req.body.rating);
+    const supplierRef = db.collection('suppliers').doc(req.params.id);
+    const doc = await supplierRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Fornecedor não encontrado'
+      });
+    }
+
+    const updateData = { 
+      rating: req.body.rating, 
+      updatedAt: new Date() 
+    };
+    await supplierRef.update(updateData);
+
+    const updatedDoc = await supplierRef.get();
+    const supplier = { id: updatedDoc.id, ...updatedDoc.data() };
 
     res.json({
       success: true,
@@ -215,7 +258,19 @@ router.patch('/:id/rating', auth, [
 // Buscar fornecedores por categoria
 router.get('/category/:category', auth, async (req, res) => {
   try {
-    const suppliers = await Supplier.findByCategory(req.params.category);
+    const snapshot = await db.collection('suppliers')
+      .where('category', '==', req.params.category)
+      .where('isActive', '==', true)
+      .orderBy('name', 'asc')
+      .get();
+
+    const suppliers = [];
+    snapshot.forEach(doc => {
+      suppliers.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
 
     res.json({
       success: true,
@@ -234,14 +289,24 @@ router.get('/category/:category', auth, async (req, res) => {
 // Buscar fornecedor por CNPJ
 router.get('/cnpj/:cnpj', auth, async (req, res) => {
   try {
-    const supplier = await Supplier.findByCNPJ(req.params.cnpj);
+    const snapshot = await db.collection('suppliers')
+      .where('cnpj', '==', req.params.cnpj)
+      .where('isActive', '==', true)
+      .limit(1)
+      .get();
 
-    if (!supplier) {
+    if (snapshot.empty) {
       return res.status(404).json({
         success: false,
         message: 'Fornecedor não encontrado'
       });
     }
+
+    const supplierDoc = snapshot.docs[0];
+    const supplier = {
+      id: supplierDoc.id,
+      ...supplierDoc.data()
+    };
 
     res.json({
       success: true,

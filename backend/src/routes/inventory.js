@@ -129,9 +129,8 @@ router.get('/stock', auth, async (req, res) => {
       });
     } else {
       // Query simples sem busca
-      if (lowStock === 'true') {
-        query = query.where('stock', '<=', 10); // Produtos com estoque baixo
-      }
+      // NOTA: Firestore não permite comparar dois campos (ex: stock <= minStock) em uma query.
+      // A filtragem de estoque baixo será feita na memória do servidor para consistência.
       
       query = query.orderBy('stock', 'asc').orderBy('name', 'asc');
       query = query.limit(parseInt(limit)).offset((parseInt(page) - 1) * parseInt(limit));
@@ -140,25 +139,60 @@ router.get('/stock', auth, async (req, res) => {
       const products = [];
       
       snapshot.forEach(doc => {
-        products.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-
-      // Contar total
-      const totalSnapshot = await db.collection('products').get();
-      const total = totalSnapshot.size;
-
-      res.json({
-        success: true,
-        data: {
-          products,
-          totalPages: Math.ceil(total / parseInt(limit)),
-          currentPage: parseInt(page),
-          total
+        const productData = { id: doc.id, ...doc.data() };
+        
+        // Aplicar filtro de estoque baixo na memória se necessário
+        if (lowStock === 'true') {
+          if (productData.stock <= productData.minStock) {
+            products.push(productData);
+          }
+        } else {
+          products.push(productData);
         }
       });
+
+      // Se estamos filtrando por estoque baixo, precisamos recalcular a paginação
+      if (lowStock === 'true') {
+        // Buscar todos os produtos para contar os que têm estoque baixo
+        const allSnapshot = await db.collection('products').get();
+        const allProducts = [];
+        allSnapshot.forEach(doc => {
+          const productData = doc.data();
+          if (productData.stock <= productData.minStock) {
+            allProducts.push({ id: doc.id, ...productData });
+          }
+        });
+        
+        // Ordenar e paginar
+        allProducts.sort((a, b) => a.stock - b.stock);
+        const start = (parseInt(page) - 1) * parseInt(limit);
+        const end = start + parseInt(limit);
+        const paginatedProducts = allProducts.slice(start, end);
+        
+        res.json({
+          success: true,
+          data: {
+            products: paginatedProducts,
+            totalPages: Math.ceil(allProducts.length / parseInt(limit)),
+            currentPage: parseInt(page),
+            total: allProducts.length
+          }
+        });
+      } else {
+        // Contar total para paginação normal
+        const totalSnapshot = await db.collection('products').get();
+        const total = totalSnapshot.size;
+
+        res.json({
+          success: true,
+          data: {
+            products,
+            totalPages: Math.ceil(total / parseInt(limit)),
+            currentPage: parseInt(page),
+            total
+          }
+        });
+      }
     }
   } catch (error) {
     console.error('Erro ao buscar estoque:', error);
