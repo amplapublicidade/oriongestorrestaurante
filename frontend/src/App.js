@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import AuthProvider from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import DemoBanner from './components/DemoBanner';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -27,9 +28,10 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Router>
+                    <Router>
             <div className="App">
-            <Routes>
+              <DemoBanner />
+              <Routes>
               {/* Rota pública */}
               <Route path="/login" element={<Login />} />
               

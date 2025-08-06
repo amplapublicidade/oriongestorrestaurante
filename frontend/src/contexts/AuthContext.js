@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../config/axios';
 import toast from 'react-hot-toast';
+import { DEMO_MODE, DEMO_USER, DEMO_TOKEN, simulateApiDelay, simulateRandomError } from '../config/demoMode';
 
 const AuthContext = createContext({});
 
@@ -27,6 +28,15 @@ const AuthProvider = ({ children }) => {
         return;
       }
 
+      // Modo demo - simular verificação
+      if (DEMO_MODE && storedToken === DEMO_TOKEN) {
+        await simulateApiDelay(300);
+        setUser(DEMO_USER);
+        setToken(DEMO_TOKEN);
+        setLoading(false);
+        return;
+      }
+
       try {
         const response = await api.get('/auth/me');
         if (response.data.success) {
@@ -49,6 +59,24 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
+    // Modo demo - simular login
+    if (DEMO_MODE) {
+      await simulateApiDelay(800);
+      
+      if (simulateRandomError()) {
+        toast.error('Erro de conexão. Tente novamente.');
+        return { success: false, message: 'Erro de conexão' };
+      }
+      
+      // Aceitar qualquer email/senha em demo
+      setUser(DEMO_USER);
+      setToken(DEMO_TOKEN);
+      localStorage.setItem('token', DEMO_TOKEN);
+      
+      toast.success('Login realizado com sucesso! (Modo Demo)');
+      return { success: true };
+    }
+
     try {
       const response = await api.post('/auth/login', {
         email,
@@ -78,6 +106,25 @@ const AuthProvider = ({ children }) => {
   };
 
   const register = async (name, email, password) => {
+    // Modo demo - simular registro
+    if (DEMO_MODE) {
+      await simulateApiDelay(1000);
+      
+      if (simulateRandomError()) {
+        toast.error('Erro de conexão. Tente novamente.');
+        return { success: false, message: 'Erro de conexão' };
+      }
+      
+      // Simular criação de usuário
+      const newUser = { ...DEMO_USER, name, email };
+      setUser(newUser);
+      setToken(DEMO_TOKEN);
+      localStorage.setItem('token', DEMO_TOKEN);
+      
+      toast.success('Conta criada com sucesso! (Modo Demo)');
+      return { success: true };
+    }
+
     try {
       const response = await api.post('/auth/register', {
         name,
