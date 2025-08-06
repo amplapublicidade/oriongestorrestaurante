@@ -1,5 +1,4 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const { db } = require('../config/firebase');
 const User = require('../models/User');
 const Supplier = require('../models/Supplier');
 const Product = require('../models/Product');
@@ -8,13 +7,9 @@ require('dotenv').config();
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://orion_user:orion_password_2025@localhost:27017/orion_restaurant?authSource=orion_restaurant', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-    console.log('✅ MongoDB conectado para seeding');
+    console.log('✅ Firebase conectado para seeding');
   } catch (error) {
-    console.error('❌ Erro ao conectar com MongoDB:', error);
+    console.error('❌ Erro ao conectar com Firebase:', error);
     process.exit(1);
   }
 };
@@ -22,7 +17,10 @@ const connectDB = async () => {
 const seedUsers = async () => {
   try {
     // Limpar usuários existentes
-    await User.deleteMany({});
+    const usersSnapshot = await db.collection('users').get();
+    const batch = db.batch();
+    usersSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
 
     const users = [
       {
@@ -45,7 +43,10 @@ const seedUsers = async () => {
       }
     ];
 
-    await User.insertMany(users);
+    // Criar usuários usando o Model
+    for (const userData of users) {
+      await User.createUser(userData);
+    }
     console.log('✅ Usuários criados com sucesso');
   } catch (error) {
     console.error('❌ Erro ao criar usuários:', error);

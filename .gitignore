@@ -70,4 +70,10 @@ Thumbs.db
 
 # Temporary files
 tmp/
-temp/ 
+temp/
+
+# Firebase credentials
+orion-gestor-firebase-adminsdk-fbsvc-ac432ef525.json
+*.json
+!package*.json
+!tsconfig*.json 
