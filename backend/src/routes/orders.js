@@ -152,7 +152,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// POST /api/orders - Criar pedido
+// POST /api/orders - Criar pedido com transação
 router.post('/', [auth, ...validateOrder], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -165,70 +165,77 @@ router.post('/', [auth, ...validateOrder], async (req, res) => {
     }
 
     const { items, customerName, customerPhone, notes } = req.body;
+    const orderRef = db.collection('orders').doc(); // Gera a referência do pedido antecipadamente
 
-    // Gerar número do pedido
-    const orderNumber = `ORD-${Date.now()}`;
+    // Executar a criação do pedido e a atualização de estoque como uma transação
+    const createdOrder = await db.runTransaction(async (transaction) => {
+      let total = 0;
+      const validatedItems = [];
+      const productUpdates = [];
 
-    // Calcular total e validar produtos
-    let total = 0;
-    const validatedItems = [];
-    
-    for (const item of items) {
-      // Buscar produto no Firestore
-      const productDoc = await db.collection('products').doc(item.productId).get();
-      
-      if (!productDoc.exists) {
-        return res.status(400).json({
-          success: false,
-          message: `Produto com ID ${item.productId} não encontrado`
+      // 1. Ler todos os produtos e verificar estoque
+      for (const item of items) {
+        const productRef = db.collection('products').doc(item.productId);
+        const productDoc = await transaction.get(productRef);
+
+        if (!productDoc.exists) {
+          throw new Error(`Produto com ID ${item.productId} não encontrado.`);
+        }
+
+        const productData = productDoc.data();
+        if (productData.stock < item.quantity) {
+          throw new Error(`Estoque insuficiente para o produto: ${productData.name}.`);
+        }
+
+        const newStock = productData.stock - item.quantity;
+        productUpdates.push({ ref: productRef, stock: newStock });
+
+        const itemTotal = productData.price * item.quantity;
+        validatedItems.push({
+          productId: item.productId,
+          productName: productData.name,
+          quantity: item.quantity,
+          price: productData.price,
+          total: itemTotal
+        });
+        total += itemTotal;
+      }
+
+      // 2. Atualizar o estoque de todos os produtos
+      for (const update of productUpdates) {
+        transaction.update(update.ref, { 
+          stock: update.stock, 
+          updatedAt: new Date() 
         });
       }
-      
-      const productData = productDoc.data();
-      const itemTotal = productData.price * item.quantity;
-      
-      validatedItems.push({
-        productId: item.productId,
-        productName: productData.name,
-        quantity: item.quantity,
-        price: productData.price,
-        total: itemTotal
-      });
-      
-      total += itemTotal;
-    }
 
-    const orderData = {
-      orderNumber,
-      customerName,
-      customerPhone,
-      items: validatedItems,
-      total,
-      status: 'pending',
-      createdAt: new Date(),
-      createdBy: req.user.userId,
-      notes: notes || ''
-    };
+      // 3. Criar o registro do pedido
+      const orderData = {
+        orderNumber: `ORD-${Date.now()}`,
+        customerName,
+        customerPhone,
+        items: validatedItems,
+        total,
+        status: 'pending',
+        createdAt: new Date(),
+        createdBy: req.user.userId,
+        notes: notes || ''
+      };
+      transaction.set(orderRef, orderData);
 
-    const orderRef = await db.collection('orders').add(orderData);
-    const orderDoc = await orderRef.get();
-
-    const order = {
-      id: orderDoc.id,
-      ...orderDoc.data(),
-      createdAt: orderDoc.data().createdAt?.toDate?.() || orderDoc.data().createdAt
-    };
+      return { id: orderRef.id, ...orderData };
+    });
 
     res.status(201).json({
       success: true,
       message: 'Pedido criado com sucesso',
-      data: { order }
+      data: { order: createdOrder }
     });
   } catch (error) {
     console.error('Erro ao criar pedido:', error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: error.message || 'Erro interno do servidor'
     });
   }
 });
