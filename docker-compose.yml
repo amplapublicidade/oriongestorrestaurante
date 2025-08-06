@@ -1,4 +1,21 @@
 services:
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: orion-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - orion-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Backend API
   backend:
     build:
@@ -56,12 +73,17 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+
+volumes:
+  redis_data:
 
 networks:
   orion-network:

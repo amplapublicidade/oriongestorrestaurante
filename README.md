@@ -11,6 +11,10 @@ Sistema completo de gestão para restaurantes com controle de estoque, fornecedo
 - **JWT** - Autenticação
 - **bcryptjs** - Criptografia de senhas
 - **Express Validator** - Validação de dados
+- **Redis** - Cache de alta performance
+- **Winston** - Sistema de logs estruturado
+- **Jest** - Testes automatizados
+- **Swagger** - Documentação da API
 
 ### Frontend
 - **React 18** - Interface do usuário
@@ -86,6 +90,8 @@ docker-compose up -d
 4. **Acesse a aplicação**
 - Frontend: http://localhost:8000
 - Backend API: http://localhost:3001
+- Documentação API: http://localhost:3001/api-docs
+- Redis: localhost:6379
 
 5. **Popular banco de dados (primeira execução)**
 ```bash
