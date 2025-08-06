@@ -79,121 +79,106 @@ router.get('/', auth, async (req, res) => {
 // GET /api/inventory/stock - Listar estoque atual
 router.get('/stock', auth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '', lowStock = false } = req.query;
+    const { page = 1, limit = 10, search = '', lowStock = 'false', category = '' } = req.query;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
 
-    let query = db.collection('products');
-    
-    // Aplicar filtros
+    // Caminho 1: Busca por texto (requer junção na memória)
     if (search) {
-      // Firestore não suporta $or diretamente, então fazemos duas queries
-      const nameQuery = query.where('name', '>=', search).where('name', '<=', search + '\uf8ff');
-      const categoryQuery = query.where('category', '>=', search).where('category', '<=', search + '\uf8ff');
+      const nameQuery = db.collection('products').where('name', '>=', search).where('name', '<=', search + '\uf8ff');
+      const categoryQuery = db.collection('products').where('category', '>=', search).where('category', '<=', search + '\uf8ff');
       
       const [nameSnapshot, categorySnapshot] = await Promise.all([
         nameQuery.get(),
         categoryQuery.get()
       ]);
       
-      // Combinar resultados
-      const products = new Map();
-      nameSnapshot.forEach(doc => {
-        products.set(doc.id, { id: doc.id, ...doc.data() });
-      });
-      categorySnapshot.forEach(doc => {
-        products.set(doc.id, { id: doc.id, ...doc.data() });
-      });
+      const productsMap = new Map();
+      nameSnapshot.forEach(doc => productsMap.set(doc.id, { id: doc.id, ...doc.data() }));
+      categorySnapshot.forEach(doc => productsMap.set(doc.id, { id: doc.id, ...doc.data() }));
       
-      let productsArray = Array.from(products.values());
+      let results = Array.from(productsMap.values());
       
       // Filtrar estoque baixo se necessário
       if (lowStock === 'true') {
-        productsArray = productsArray.filter(p => p.stock <= p.minStock);
+        results = results.filter(p => p.stock <= p.minStock);
       }
       
-      // Ordenar por estoque
-      productsArray.sort((a, b) => a.stock - b.stock);
+      results.sort((a, b) => a.stock - b.stock);
       
-      // Paginação manual
-      const start = (parseInt(page) - 1) * parseInt(limit);
-      const end = start + parseInt(limit);
-      const paginatedProducts = productsArray.slice(start, end);
+      const paginatedProducts = results.slice(offset, offset + limitNum);
       
       res.json({
         success: true,
         data: {
           products: paginatedProducts,
-          totalPages: Math.ceil(productsArray.length / parseInt(limit)),
-          currentPage: parseInt(page),
-          total: productsArray.length
+          totalPages: Math.ceil(results.length / limitNum),
+          currentPage: pageNum,
+          total: results.length
         }
       });
-    } else {
-      // Query simples sem busca
-      // NOTA: Firestore não permite comparar dois campos (ex: stock <= minStock) em uma query.
-      // A filtragem de estoque baixo será feita na memória do servidor para consistência.
-      
-      query = query.orderBy('stock', 'asc').orderBy('name', 'asc');
-      query = query.limit(parseInt(limit)).offset((parseInt(page) - 1) * parseInt(limit));
-      
-      const snapshot = await query.get();
-      const products = [];
-      
-      snapshot.forEach(doc => {
-        const productData = { id: doc.id, ...doc.data() };
-        
-        // Aplicar filtro de estoque baixo na memória se necessário
-        if (lowStock === 'true') {
-          if (productData.stock <= productData.minStock) {
-            products.push(productData);
-          }
-        } else {
-          products.push(productData);
-        }
-      });
-
-      // Se estamos filtrando por estoque baixo, precisamos recalcular a paginação
-      if (lowStock === 'true') {
-        // Buscar todos os produtos para contar os que têm estoque baixo
-        const allSnapshot = await db.collection('products').get();
-        const allProducts = [];
-        allSnapshot.forEach(doc => {
-          const productData = doc.data();
-          if (productData.stock <= productData.minStock) {
-            allProducts.push({ id: doc.id, ...productData });
-          }
-        });
-        
-        // Ordenar e paginar
-        allProducts.sort((a, b) => a.stock - b.stock);
-        const start = (parseInt(page) - 1) * parseInt(limit);
-        const end = start + parseInt(limit);
-        const paginatedProducts = allProducts.slice(start, end);
-        
-        res.json({
-          success: true,
-          data: {
-            products: paginatedProducts,
-            totalPages: Math.ceil(allProducts.length / parseInt(limit)),
-            currentPage: parseInt(page),
-            total: allProducts.length
-          }
-        });
-      } else {
-        // Contar total para paginação normal
-        const totalSnapshot = await db.collection('products').get();
-        const total = totalSnapshot.size;
-
-        res.json({
-          success: true,
-          data: {
-            products,
-            totalPages: Math.ceil(total / parseInt(limit)),
-            currentPage: parseInt(page),
-            total
-          }
-        });
-      }
+      return;
     }
+
+    // Caminho 2: Filtro de estoque baixo (requer leitura de todos os docs para filtrar na memória)
+    if (lowStock === 'true') {
+      let baseQuery = db.collection('products');
+      if (category) {
+        baseQuery = baseQuery.where('category', '==', category);
+      }
+
+      const allSnapshot = await baseQuery.get();
+      let allLowStockProducts = [];
+      allSnapshot.forEach(doc => {
+        const productData = doc.data();
+        if (productData.stock <= productData.minStock) {
+          allLowStockProducts.push({ id: doc.id, ...productData });
+        }
+      });
+      
+      allLowStockProducts.sort((a, b) => a.stock - b.stock);
+      
+      const paginatedProducts = allLowStockProducts.slice(offset, offset + limitNum);
+      
+      res.json({
+        success: true,
+        data: {
+          products: paginatedProducts,
+          totalPages: Math.ceil(allLowStockProducts.length / limitNum),
+          currentPage: pageNum,
+          total: allLowStockProducts.length
+        }
+      });
+      return;
+    }
+
+    // Caminho 3: Query paginada e eficiente (sem search, sem lowStock)
+    let query = db.collection('products');
+    if (category) {
+      query = query.where('category', '==', category);
+    }
+
+    const totalSnapshot = await query.get();
+    const total = totalSnapshot.size;
+
+    const dataQuery = query
+      .orderBy('name', 'asc')
+      .limit(limitNum)
+      .offset(offset);
+      
+    const snapshot = await dataQuery.get();
+    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    res.json({
+      success: true,
+      data: {
+        products,
+        totalPages: Math.ceil(total / limitNum),
+        currentPage: pageNum,
+        total
+      }
+    });
   } catch (error) {
     console.error('Erro ao buscar estoque:', error);
     res.status(500).json({
@@ -344,74 +329,6 @@ router.get('/reports', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao gerar relatórios:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor'
-    });
-  }
-});
-
-// POST /api/inventory/adjust - Ajuste de estoque
-router.post('/adjust', auth, async (req, res) => {
-  try {
-    const { productId, newStock, reason } = req.body;
-
-    if (!productId || newStock === undefined || newStock < 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Dados inválidos'
-      });
-    }
-
-    const productRef = db.collection('products').doc(productId);
-    const productDoc = await productRef.get();
-
-    if (!productDoc.exists) {
-      return res.status(404).json({
-        success: false,
-        message: 'Produto não encontrado'
-      });
-    }
-
-    const productData = productDoc.data();
-    const oldStock = productData.stock || 0;
-
-    // Usar transação para garantir consistência
-    await db.runTransaction(async (transaction) => {
-      // Atualizar produto
-      transaction.update(productRef, { 
-        stock: newStock, 
-        updatedAt: new Date() 
-      });
-
-      // Registrar movimentação de ajuste
-      const movementRef = db.collection('inventoryMovements').doc();
-      const movementData = {
-        productId,
-        productName: productData.name,
-        type: 'adjust',
-        quantity: newStock,
-        previousStock: oldStock,
-        newStock,
-        reason: reason || 'Ajuste manual de estoque',
-        createdAt: new Date(),
-        createdBy: req.user.userId
-      };
-      transaction.set(movementRef, movementData);
-    });
-
-    res.json({
-      success: true,
-      message: 'Estoque ajustado com sucesso',
-      data: {
-        productId,
-        oldStock,
-        newStock,
-        reason
-      }
-    });
-  } catch (error) {
-    console.error('Erro ao ajustar estoque:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
