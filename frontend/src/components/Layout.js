@@ -23,6 +23,12 @@ const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const userDropdownRef = useRef(null);
+  
+  // Estados e refs separados para cada dropdown
+  const [sidebarUserMenuOpen, setSidebarUserMenuOpen] = useState(false);
+  const [headerUserMenuOpen, setHeaderUserMenuOpen] = useState(false);
+  const sidebarUserMenuRef = useRef(null);
+  const headerUserMenuRef = useRef(null);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -34,8 +40,9 @@ const Layout = ({ children }) => {
 
   const handleLogout = () => {
     logout();
+    setSidebarUserMenuOpen(false);
+    setHeaderUserMenuOpen(false);
     navigate('/login');
-    setUserDropdownOpen(false);
   };
 
   const isCurrentPath = (path) => location.pathname === path;
@@ -43,8 +50,11 @@ const Layout = ({ children }) => {
   // Fechar dropdown quando clicar fora
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
-        setUserDropdownOpen(false);
+      if (sidebarUserMenuRef.current && !sidebarUserMenuRef.current.contains(event.target)) {
+        setSidebarUserMenuOpen(false);
+      }
+      if (headerUserMenuRef.current && !headerUserMenuRef.current.contains(event.target)) {
+        setHeaderUserMenuOpen(false);
       }
     };
 
@@ -101,9 +111,9 @@ const Layout = ({ children }) => {
 
           {/* User section */}
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
-            <div className="relative" ref={userDropdownRef}>
+            <div className="relative" ref={sidebarUserMenuRef}>
               <button
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                onClick={() => setSidebarUserMenuOpen(!sidebarUserMenuOpen)}
                 className="flex w-full items-center text-left text-sm text-gray-700 hover:bg-gray-50 rounded-md p-2 transition-colors"
               >
                 <div className="flex-shrink-0">
@@ -117,11 +127,11 @@ const Layout = ({ children }) => {
                   <p className="font-medium text-gray-900 truncate">{user?.name}</p>
                   <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                 </div>
-                <ChevronDownIcon className={`h-4 w-4 text-gray-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDownIcon className={`h-4 w-4 text-gray-400 transition-transform ${sidebarUserMenuOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {/* User Dropdown */}
-              {userDropdownOpen && (
+              {sidebarUserMenuOpen && (
                 <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 border border-gray-200">
                   <div className="py-2">
                     <div className="px-4 py-2 border-b border-gray-100">
@@ -131,7 +141,7 @@ const Layout = ({ children }) => {
                     <button
                       onClick={() => {
                         // Navegar para perfil (implementar depois)
-                        setUserDropdownOpen(false);
+                        setSidebarUserMenuOpen(false);
                       }}
                       className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                     >
@@ -141,7 +151,7 @@ const Layout = ({ children }) => {
                     <button
                       onClick={() => {
                         // Navegar para configurações (implementar depois)
-                        setUserDropdownOpen(false);
+                        setSidebarUserMenuOpen(false);
                       }}
                       className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                     >
@@ -268,9 +278,9 @@ const Layout = ({ children }) => {
               </button>
 
               {/* Desktop user menu */}
-              <div className="hidden lg:block relative" ref={userDropdownRef}>
+              <div className="hidden lg:block relative" ref={headerUserMenuRef}>
                 <button
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  onClick={() => setHeaderUserMenuOpen(!headerUserMenuOpen)}
                   className="flex items-center text-sm text-gray-700 hover:text-gray-900 transition-colors"
                 >
                   <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
@@ -279,10 +289,10 @@ const Layout = ({ children }) => {
                     </span>
                   </div>
                   <span className="ml-2 font-medium">{user?.name}</span>
-                  <ChevronDownIcon className={`ml-1 h-4 w-4 text-gray-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDownIcon className={`ml-1 h-4 w-4 text-gray-400 transition-transform ${headerUserMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
-                {userDropdownOpen && (
+                {headerUserMenuOpen && (
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 border border-gray-200">
                     <div className="py-2">
                       <div className="px-4 py-2 border-b border-gray-100">
@@ -292,7 +302,7 @@ const Layout = ({ children }) => {
                       <button
                         onClick={() => {
                           // Navegar para perfil (implementar depois)
-                          setUserDropdownOpen(false);
+                          setHeaderUserMenuOpen(false);
                         }}
                         className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                       >
@@ -302,7 +312,7 @@ const Layout = ({ children }) => {
                       <button
                         onClick={() => {
                           // Navegar para configurações (implementar depois)
-                          setUserDropdownOpen(false);
+                          setHeaderUserMenuOpen(false);
                         }}
                         className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                       >
@@ -325,7 +335,7 @@ const Layout = ({ children }) => {
               {/* Mobile user menu */}
               <div className="lg:hidden relative">
                 <button
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  onClick={() => setHeaderUserMenuOpen(!headerUserMenuOpen)}
                   className="flex items-center text-sm text-gray-700"
                 >
                   <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
@@ -335,7 +345,7 @@ const Layout = ({ children }) => {
                   </div>
                 </button>
 
-                {userDropdownOpen && (
+                {headerUserMenuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 border border-gray-200">
                     <div className="py-2">
                       <div className="px-4 py-2 border-b border-gray-100">
