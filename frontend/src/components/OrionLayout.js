@@ -4,7 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   PlusCircle, Edit, Trash2, Upload, ShoppingCart, Send, Calendar, Package, Bell, 
   Menu, X, Home, BarChart3, Building2, Archive, DollarSign, Settings, Users,
-  ChevronDown, ChevronRight, Truck, HelpCircle, BookOpen, Star, ExternalLink
+  ChevronDown, ChevronRight, Truck, HelpCircle, BookOpen, Star, ExternalLink,
+  Sun, Moon
 } from 'lucide-react';
 
 const OrionLayout = ({ children }) => {
@@ -12,7 +13,10 @@ const OrionLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarHovered, setSidebarHovered] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
   
   // Estados para submenus
   const [expandedMenus, setExpandedMenus] = useState({
@@ -26,6 +30,15 @@ const OrionLayout = ({ children }) => {
 
   // Estado para dropdown de usuário
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+  // Aplicar modo escuro ao carregar
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   // Fechar dropdowns ao clicar fora
   useEffect(() => {
@@ -55,6 +68,19 @@ const OrionLayout = ({ children }) => {
     logout();
     setShowUserDropdown(false);
     navigate('/login');
+  };
+
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    localStorage.setItem('darkMode', JSON.stringify(newMode));
+    
+    // Aplicar classe ao body
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   };
 
   const isCurrentPath = (path) => location.pathname === path;
@@ -126,13 +152,36 @@ const OrionLayout = ({ children }) => {
   const TopMenu = () => {
     return (
       <div className="flex items-center space-x-4">
-        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+        <button 
+          onClick={toggleDarkMode}
+          className={`p-2 rounded-lg transition-colors ${
+            isDarkMode 
+              ? 'text-yellow-400 hover:text-yellow-300 hover:bg-gray-700' 
+              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+          }`}
+          title={isDarkMode ? 'Modo Claro' : 'Modo Escuro'}
+        >
+          {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+        <button className={`p-2 rounded-lg transition-colors ${
+          isDarkMode 
+            ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+        }`}>
           <Bell size={20} />
         </button>
-        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+        <button className={`p-2 rounded-lg transition-colors ${
+          isDarkMode 
+            ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+        }`}>
           <HelpCircle size={20} />
         </button>
-        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+        <button className={`p-2 rounded-lg transition-colors ${
+          isDarkMode 
+            ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+        }`}>
           <BookOpen size={20} />
         </button>
       </div>

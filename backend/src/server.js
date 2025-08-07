@@ -42,7 +42,11 @@ app.use(compression());
 app.use(limiter);
 app.use(morgan('combined'));
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:8000',
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:8000',
+    'https://orion-gestor.netlify.app',
+    'https://orion-gestor-restaurante.netlify.app'
+  ],
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
