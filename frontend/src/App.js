@@ -6,6 +6,7 @@ import AuthProvider from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import DemoBanner from './components/DemoBanner';
+import OrionLayout from './components/OrionLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -48,7 +49,9 @@ function App() {
                 path="/dashboard"
                 element={
                   <ProtectedRoute>
-                    <Dashboard />
+                    <OrionLayout>
+                      <Dashboard />
+                    </OrionLayout>
                   </ProtectedRoute>
                 }
               />
@@ -56,7 +59,9 @@ function App() {
                 path="/products"
                 element={
                   <ProtectedRoute>
-                    <Products />
+                    <OrionLayout>
+                      <Products />
+                    </OrionLayout>
                   </ProtectedRoute>
                 }
               />
@@ -64,7 +69,9 @@ function App() {
                 path="/suppliers"
                 element={
                   <ProtectedRoute>
-                    <Suppliers />
+                    <OrionLayout>
+                      <Suppliers />
+                    </OrionLayout>
                   </ProtectedRoute>
                 }
               />
@@ -72,7 +79,9 @@ function App() {
                 path="/inventory"
                 element={
                   <ProtectedRoute>
-                    <Inventory />
+                    <OrionLayout>
+                      <Inventory />
+                    </OrionLayout>
                   </ProtectedRoute>
                 }
               />
@@ -80,7 +89,9 @@ function App() {
                 path="/reports"
                 element={
                   <ProtectedRoute>
-                    <Reports />
+                    <OrionLayout>
+                      <Reports />
+                    </OrionLayout>
                   </ProtectedRoute>
                 }
               />

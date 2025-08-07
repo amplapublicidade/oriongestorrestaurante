@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
 import {
   ChartBarIcon,
   DocumentTextIcon,
@@ -130,8 +129,7 @@ const Reports = () => {
   const currentData = mockData[reportType] || mockData.inventory;
 
   return (
-    <Layout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -556,7 +554,6 @@ const Reports = () => {
           </div>
         )}
       </div>
-    </Layout>
   );
 };
 
