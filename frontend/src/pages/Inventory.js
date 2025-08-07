@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArchiveBoxIcon,
+  ExclamationTriangleIcon,
   PlusIcon,
   MinusIcon,
-  ExclamationTriangleIcon,
+  EyeIcon,
   MagnifyingGlassIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  EyeIcon
+  FunnelIcon
 } from '@heroicons/react/24/outline';
 import api from '../config/axios';
 import toast from 'react-hot-toast';
@@ -26,7 +25,6 @@ const Inventory = () => {
     notes: ''
   });
 
-  // Carregar produtos
   useEffect(() => {
     loadProducts();
   }, []);
@@ -46,20 +44,6 @@ const Inventory = () => {
     }
   };
 
-  // Filtrar produtos
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.category.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (filterType === 'all') return matchesSearch;
-    if (filterType === 'low') return matchesSearch && product.stock <= product.minStock;
-    if (filterType === 'out') return matchesSearch && product.stock === 0;
-    if (filterType === 'normal') return matchesSearch && product.stock > product.minStock;
-    
-    return matchesSearch;
-  });
-
-  // Registrar movimento de estoque
   const handleMovement = async (e) => {
     e.preventDefault();
     try {
@@ -70,20 +54,18 @@ const Inventory = () => {
         reason: movementData.reason,
         notes: movementData.notes
       });
-      
+
       if (response.data.success) {
         toast.success('Movimento registrado com sucesso!');
-        setShowMovementModal(false);
-        resetMovementForm();
-        loadProducts();
+        closeModal();
+        loadProducts(); // Recarregar produtos para atualizar estoque
       }
     } catch (error) {
       console.error('Erro ao registrar movimento:', error);
-      toast.error(error.response?.data?.message || 'Erro ao registrar movimento');
+      toast.error('Erro ao registrar movimento');
     }
   };
 
-  // Abrir modal de movimento
   const openMovementModal = (product, type = 'in') => {
     setSelectedProduct(product);
     setMovementData({
@@ -95,7 +77,6 @@ const Inventory = () => {
     setShowMovementModal(true);
   };
 
-  // Resetar formulário de movimento
   const resetMovementForm = () => {
     setMovementData({
       type: 'in',
@@ -103,14 +84,26 @@ const Inventory = () => {
       reason: '',
       notes: ''
     });
-    setSelectedProduct(null);
   };
 
-  // Fechar modal
   const closeModal = () => {
     setShowMovementModal(false);
+    setSelectedProduct(null);
     resetMovementForm();
   };
+
+  // Filtrar produtos
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         product.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = filterType === 'all' ||
+                         (filterType === 'low' && product.stock <= product.minStock) ||
+                         (filterType === 'out' && product.stock === 0) ||
+                         (filterType === 'normal' && product.stock > product.minStock);
+    
+    return matchesSearch && matchesFilter;
+  });
 
   // Calcular estatísticas
   const stats = {
@@ -122,242 +115,255 @@ const Inventory = () => {
 
   return (
     <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Controle de Estoque</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Gerencie entradas, saídas e monitoramento do estoque
-            </p>
-          </div>
-        </div>
-
-        {/* Estatísticas */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <ArchiveBoxIcon className="h-6 w-6 text-gray-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Total de Produtos
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {stats.totalProducts}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <ExclamationTriangleIcon className="h-6 w-6 text-yellow-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Estoque Baixo
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {stats.lowStock}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <MinusIcon className="h-6 w-6 text-red-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Sem Estoque
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {stats.outOfStock}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <ArchiveBoxIcon className="h-6 w-6 text-green-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Valor Total
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      R$ {stats.totalValue.toFixed(2)}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filtros */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Busca */}
-            <div className="flex-1">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar produtos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Filtro de tipo */}
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">Todos os produtos</option>
-              <option value="low">Estoque baixo</option>
-              <option value="out">Sem estoque</option>
-              <option value="normal">Estoque normal</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Lista de Produtos */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-500">Carregando produtos...</p>
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="p-8 text-center">
-              <ArchiveBoxIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum produto encontrado</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {searchTerm ? 'Tente ajustar os termos de busca.' : 'Adicione produtos para começar.'}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Produto
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estoque Atual
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estoque Mínimo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Valor em Estoque
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {product.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {product.category}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {product.stock} unidades
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {product.minStock} unidades
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          product.stock === 0
-                            ? 'bg-red-100 text-red-800'
-                            : product.stock <= product.minStock
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {product.stock === 0 ? 'Sem Estoque' : 
-                           product.stock <= product.minStock ? 'Estoque Baixo' : 'Normal'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        R$ {(product.stock * product.price).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => openMovementModal(product, 'in')}
-                            className="text-green-600 hover:text-green-900"
-                            title="Entrada"
-                          >
-                            <PlusIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => openMovementModal(product, 'out')}
-                            className="text-red-600 hover:text-red-900"
-                            title="Saída"
-                          >
-                            <MinusIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => openMovementModal(product, 'adjust')}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Ajuste"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Controle de Estoque</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Gerencie entradas, saídas e monitoramento do estoque
+          </p>
         </div>
       </div>
 
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ArchiveBoxIcon className="h-6 w-6 text-gray-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Total de Produtos
+                  </dt>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {stats.totalProducts}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ExclamationTriangleIcon className="h-6 w-6 text-yellow-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Estoque Baixo
+                  </dt>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {stats.lowStock}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <MinusIcon className="h-6 w-6 text-red-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Sem Estoque
+                  </dt>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {stats.outOfStock}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ArchiveBoxIcon className="h-6 w-6 text-green-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Valor Total
+                  </dt>
+                  <dd className="text-lg font-medium text-gray-900">
+                    R$ {stats.totalValue.toFixed(2)}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filtros e Busca */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Busca */}
+          <div className="flex-1">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar produtos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Filtro de tipo */}
+          <div className="sm:w-48">
+            <div className="relative">
+              <FunnelIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">Todos</option>
+                <option value="low">Estoque Baixo</option>
+                <option value="out">Sem Estoque</option>
+                <option value="normal">Estoque Normal</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de Produtos */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-2 text-gray-500">Carregando produtos...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="p-8 text-center">
+            <ArchiveBoxIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum produto encontrado</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchTerm ? 'Tente ajustar os termos de busca.' : 'Nenhum produto cadastrado.'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Produto
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Categoria
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estoque Atual
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estoque Mínimo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Valor Total
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ações
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredProducts.map((product) => (
+                  <tr key={product.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {product.name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {product.description}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {product.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {product.stock} unidades
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">
+                        {product.minStock} unidades
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        product.stock === 0
+                          ? 'bg-red-100 text-red-800'
+                          : product.stock <= product.minStock
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {product.stock === 0 ? 'Sem Estoque' : 
+                         product.stock <= product.minStock ? 'Estoque Baixo' : 'Normal'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      R$ {(product.stock * product.price).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => openMovementModal(product, 'in')}
+                          className="text-green-600 hover:text-green-900"
+                          title="Entrada"
+                        >
+                          <PlusIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => openMovementModal(product, 'out')}
+                          className="text-red-600 hover:text-red-900"
+                          title="Saída"
+                        >
+                          <MinusIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => openMovementModal(product, 'adjust')}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Ajuste"
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal de Movimento de Estoque */}
       {showMovementModal && selectedProduct && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -433,6 +439,7 @@ const Inventory = () => {
           </div>
         </div>
       )}
+    </div>
   );
 };
 
