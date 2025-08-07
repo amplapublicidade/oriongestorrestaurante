@@ -2,31 +2,16 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const { auth, authorize } = require('../middleware/auth');
-const { db } = require('../config/firebase');
+// Supondo que você criará um Model para Supplier, assim como fez para User
+const Supplier = require('../models/Supplier'); 
 
 // Listar todos os fornecedores
 router.get('/', auth, async (req, res) => {
   try {
     const { category, isActive, limit = 100, cnpj } = req.query;
 
-    let query = db.collection('suppliers');
-
-    // Aplicar filtros
-    if (category) {
-      query = query.where('category', '==', category);
-    }
-    if (isActive !== undefined) {
-      query = query.where('isActive', '==', isActive === 'true');
-    }
-    if (cnpj) {
-      query = query.where('cnpj', '==', cnpj);
-    }
-
-    query = query.orderBy('name', 'asc').limit(parseInt(limit));
-
-    const snapshot = await query.get();
-    const suppliers = [];
-    snapshot.forEach(doc => suppliers.push({ id: doc.id, ...doc.data() }));
+    // A rota apenas delega a busca para o Model
+    const suppliers = await Supplier.findWithFilters(req.query);
 
     res.json({
       success: true,
@@ -45,18 +30,13 @@ router.get('/', auth, async (req, res) => {
 // Buscar fornecedor por ID
 router.get('/:id', auth, async (req, res) => {
   try {
-    const supplierDoc = await db.collection('suppliers').doc(req.params.id).get();
-
-    if (!supplierDoc.exists) {
-      return res.status(404).json({
-        success: false,
-        message: 'Fornecedor não encontrado'
-      });
+    const supplier = await Supplier.findById(req.params.id);
+    if (!supplier) {
+      return res.status(404).json({ success: false, message: 'Fornecedor não encontrado' });
     }
-
     res.json({
       success: true,
-      data: { supplier: { id: supplierDoc.id, ...supplierDoc.data() } }
+      data: { supplier }
     });
 
   } catch (error) {
@@ -94,19 +74,8 @@ router.post('/', auth, [
       });
     }
 
-    const supplierData = {
-      ...req.body,
-      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
-      rating: req.body.rating || 0,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    const supplierRef = await db.collection('suppliers').add(supplierData);
-    const newDoc = await supplierRef.get();
-
-    const supplier = { id: newDoc.id, ...newDoc.data() };
-
+    // A lógica de criação, incluindo valores padrão, fica no model
+    const supplier = await Supplier.create(req.body);
     res.status(201).json({
       success: true,
       message: 'Fornecedor criado com sucesso',
@@ -149,21 +118,13 @@ router.put('/:id', auth, [
       });
     }
 
-    const supplierRef = db.collection('suppliers').doc(req.params.id);
-    const doc = await supplierRef.get();
-    if (!doc.exists) {
-      return res.status(404).json({
-        success: false,
-        message: 'Fornecedor não encontrado'
-      });
+    // A lógica de atualização, incluindo a verificação de existência,
+    // fica encapsulada no Model.
+    const supplier = await Supplier.update(req.params.id, req.body);
+
+    if (!supplier) {
+      return res.status(404).json({ success: false, message: 'Fornecedor não encontrado' });
     }
-
-    const updateData = { ...req.body, updatedAt: new Date() };
-    await supplierRef.update(updateData);
-
-    const updatedDoc = await supplierRef.get();
-    const supplier = { id: updatedDoc.id, ...updatedDoc.data() };
-
     res.json({
       success: true,
       message: 'Fornecedor atualizado com sucesso',
@@ -182,18 +143,12 @@ router.put('/:id', auth, [
 // Deletar fornecedor
 router.delete('/:id', auth, authorize('admin', 'manager'), async (req, res) => {
   try {
-    const supplierRef = db.collection('suppliers').doc(req.params.id);
-    const doc = await supplierRef.get();
+    const result = await Supplier.delete(req.params.id);
 
-    if (!doc.exists) {
-      return res.status(404).json({
-        success: false,
-        message: 'Fornecedor não encontrado'
-      });
+    if (!result.success) {
+      return res.status(404).json({ success: false, message: result.message });
     }
-
-    await supplierRef.delete();
-
+    
     res.json({
       success: true,
       message: 'Fornecedor deletado com sucesso'
@@ -225,25 +180,13 @@ router.patch('/:id/rating', auth, [
       });
     }
 
-    const supplierRef = db.collection('suppliers').doc(req.params.id);
-    const doc = await supplierRef.get();
+    // A lógica de atualização de um campo específico também vai para o Model
+    const supplier = await Supplier.updateRating(req.params.id, req.body.rating);
 
-    if (!doc.exists) {
-      return res.status(404).json({
-        success: false,
-        message: 'Fornecedor não encontrado'
-      });
+    if (!supplier) {
+      return res.status(404).json({ success: false, message: 'Fornecedor não encontrado' });
     }
-
-    const updateData = { 
-      rating: req.body.rating, 
-      updatedAt: new Date() 
-    };
-    await supplierRef.update(updateData);
-
-    const updatedDoc = await supplierRef.get();
-    const supplier = { id: updatedDoc.id, ...updatedDoc.data() };
-
+    
     res.json({
       success: true,
       message: 'Rating atualizado com sucesso',
