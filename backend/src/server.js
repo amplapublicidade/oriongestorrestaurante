@@ -10,7 +10,7 @@ require('dotenv').config();
 // Importar configurações
 const specs = require('./config/swagger');
 const { requestLogger, errorLogger } = require('./config/logger');
-const { cacheMiddleware } = require('./config/redis');
+const { cacheMiddleware } = require('./config/redis-fallback');
 const { sanitizeData } = require('./middleware/validation');
 
 // Importar configuração do Firebase

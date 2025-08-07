@@ -1,25 +1,26 @@
 const redis = require('redis');
 
 // Configuração do cliente Redis
-const client = redis.createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-  retry_strategy: (options) => {
-    if (options.error && options.error.code === 'ECONNREFUSED') {
-      // End server if we cannot connect to Redis
-      return new Error('The server refused the connection');
+const redisConfig = {
+  socket: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT || 6379,
+    reconnectStrategy: (retries) => {
+      if (retries > 10) {
+        console.error('❌ Máximo de tentativas de reconexão Redis excedido');
+        return false;
+      }
+      return Math.min(retries * 100, 3000);
     }
-    if (options.total_retry_time > 1000 * 60 * 60) {
-      // End retry after a specific timeout
-      return new Error('Retry time exhausted');
-    }
-    if (options.attempt > 10) {
-      // End reconnecting with built in error
-      return undefined;
-    }
-    // Reconnect after
-    return Math.min(options.attempt * 100, 3000);
   }
-});
+};
+
+// Se REDIS_URL estiver definido, usar URL
+if (process.env.REDIS_URL && process.env.REDIS_URL !== 'NONE') {
+  redisConfig.url = process.env.REDIS_URL;
+}
+
+const client = redis.createClient(redisConfig);
 
 // Conectar ao Redis
 client.on('connect', () => {
@@ -30,8 +31,25 @@ client.on('error', (err) => {
   console.error('❌ Erro no Redis:', err);
 });
 
-// Conectar
-client.connect().catch(console.error);
+client.on('ready', () => {
+  console.log('✅ Redis pronto para uso');
+});
+
+client.on('end', () => {
+  console.log('🔌 Conexão Redis encerrada');
+});
+
+// Conectar com tratamento de erro
+const connectRedis = async () => {
+  try {
+    await client.connect();
+  } catch (error) {
+    console.error('❌ Falha ao conectar ao Redis:', error.message);
+    console.log('⚠️  Continuando sem Redis (cache desabilitado)');
+  }
+};
+
+connectRedis();
 
 /**
  * Middleware de cache para Express
@@ -40,6 +58,11 @@ const cacheMiddleware = (duration = 300) => {
   return async (req, res, next) => {
     // Pular cache para requisições não-GET
     if (req.method !== 'GET') {
+      return next();
+    }
+
+    // Se Redis não estiver conectado, pular cache
+    if (!client.isReady) {
       return next();
     }
 
@@ -56,7 +79,9 @@ const cacheMiddleware = (duration = 300) => {
       // Interceptar a resposta para cachear
       const originalSend = res.json;
       res.json = function(data) {
-        client.setEx(key, duration, JSON.stringify(data));
+        if (client.isReady) {
+          client.setEx(key, duration, JSON.stringify(data)).catch(console.error);
+        }
         originalSend.call(this, data);
       };
       
@@ -73,6 +98,11 @@ const cacheMiddleware = (duration = 300) => {
  */
 const invalidateCache = async (pattern) => {
   try {
+    if (!client.isReady) {
+      console.log('⚠️  Redis não disponível, cache não invalidado');
+      return;
+    }
+    
     const keys = await client.keys(pattern);
     if (keys.length > 0) {
       await client.del(keys);
