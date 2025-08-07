@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   PlusIcon,
+  PencilIcon,
+  TrashIcon,
   MagnifyingGlassIcon,
-  FunnelIcon,
   ArrowUpIcon,
   ArrowDownIcon
 } from '@heroicons/react/24/outline';
@@ -24,11 +25,9 @@ const Products = () => {
     price: '',
     stock: '',
     minStock: '',
-    supplier: '',
     barcode: ''
   });
 
-  // Carregar produtos
   useEffect(() => {
     loadProducts();
   }, []);
@@ -48,20 +47,103 @@ const Products = () => {
     }
   };
 
+  const handleAddProduct = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await api.post('/products', formData);
+      if (response.data.success) {
+        toast.success('Produto adicionado com sucesso!');
+        closeModal();
+        loadProducts();
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar produto:', error);
+      toast.error('Erro ao adicionar produto');
+    }
+  };
+
+  const handleEditProduct = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await api.put(`/products/${editingProduct.id}`, formData);
+      if (response.data.success) {
+        toast.success('Produto atualizado com sucesso!');
+        closeModal();
+        loadProducts();
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar produto:', error);
+      toast.error('Erro ao atualizar produto');
+    }
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    if (window.confirm('Tem certeza que deseja excluir este produto?')) {
+      try {
+        const response = await api.delete(`/products/${productId}`);
+        if (response.data.success) {
+          toast.success('Produto excluído com sucesso!');
+          loadProducts();
+        }
+      } catch (error) {
+        console.error('Erro ao excluir produto:', error);
+        toast.error('Erro ao excluir produto');
+      }
+    }
+  };
+
+  const openEditModal = (product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      description: product.description || '',
+      category: product.category || '',
+      price: product.price,
+      stock: product.stock,
+      minStock: product.minStock || '',
+      barcode: product.barcode || ''
+    });
+    setShowAddModal(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      category: '',
+      price: '',
+      stock: '',
+      minStock: '',
+      barcode: ''
+    });
+    setEditingProduct(null);
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    resetForm();
+  };
+
   // Filtrar e ordenar produtos
   const filteredAndSortedProducts = products
     .filter(product =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchTerm.toLowerCase())
+      product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category?.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
       let aValue = a[sortBy];
       let bValue = b[sortBy];
       
       if (sortBy === 'price') {
-        aValue = parseFloat(aValue) || 0;
-        bValue = parseFloat(bValue) || 0;
+        aValue = parseFloat(aValue);
+        bValue = parseFloat(bValue);
+      } else if (sortBy === 'stock') {
+        aValue = parseInt(aValue);
+        bValue = parseInt(bValue);
+      } else {
+        aValue = aValue?.toLowerCase() || '';
+        bValue = bValue?.toLowerCase() || '';
       }
       
       if (sortOrder === 'asc') {
@@ -71,248 +153,167 @@ const Products = () => {
       }
     });
 
-  // Adicionar produto
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await api.post('/products', formData);
-      if (response.data.success) {
-        toast.success('Produto adicionado com sucesso!');
-        setShowAddModal(false);
-        resetForm();
-        loadProducts();
-      }
-    } catch (error) {
-      console.error('Erro ao adicionar produto:', error);
-      toast.error(error.response?.data?.message || 'Erro ao adicionar produto');
-    }
-  };
-
-  // Editar produto
-  const handleEditProduct = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await api.put(`/products/${editingProduct.id}`, formData);
-      if (response.data.success) {
-        toast.success('Produto atualizado com sucesso!');
-        setShowAddModal(false);
-        setEditingProduct(null);
-        resetForm();
-        loadProducts();
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar produto:', error);
-      toast.error(error.response?.data?.message || 'Erro ao atualizar produto');
-    }
-  };
-
-  // Deletar produto
-  const handleDeleteProduct = async (productId) => {
-    if (window.confirm('Tem certeza que deseja deletar este produto?')) {
-      try {
-        const response = await api.delete(`/products/${productId}`);
-        if (response.data.success) {
-          toast.success('Produto deletado com sucesso!');
-          loadProducts();
-        }
-      } catch (error) {
-        console.error('Erro ao deletar produto:', error);
-        toast.error(error.response?.data?.message || 'Erro ao deletar produto');
-      }
-    }
-  };
-
-  // Abrir modal de edição
-  const openEditModal = (product) => {
-    setEditingProduct(product);
-    setFormData({
-      name: product.name,
-      description: product.description,
-      category: product.category,
-      price: product.price,
-      stock: product.stock,
-      minStock: product.minStock,
-      supplier: product.supplier,
-      barcode: product.barcode
-    });
-    setShowAddModal(true);
-  };
-
-  // Resetar formulário
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      category: '',
-      price: '',
-      stock: '',
-      minStock: '',
-      supplier: '',
-      barcode: ''
-    });
-  };
-
-  // Fechar modal
-  const closeModal = () => {
-    setShowAddModal(false);
-    setEditingProduct(null);
-    resetForm();
-  };
-
   return (
     <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Gerencie o catálogo de produtos do seu restaurante
-            </p>
-          </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Novo Produto
-          </button>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Gerencie o catálogo de produtos do seu restaurante
+          </p>
         </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <PlusIcon className="h-4 w-4 mr-2" />
+          Novo Produto
+        </button>
+      </div>
 
-        {/* Filtros e Busca */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Busca */}
-            <div className="flex-1">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar produtos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Ordenação */}
-            <div className="flex gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="name">Nome</option>
-                <option value="category">Categoria</option>
-                <option value="price">Preço</option>
-                <option value="stock">Estoque</option>
-              </select>
-              <button
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                {sortOrder === 'asc' ? (
-                  <ArrowUpIcon className="h-4 w-4" />
-                ) : (
-                  <ArrowDownIcon className="h-4 w-4" />
-                )}
-              </button>
+      {/* Filtros e Busca */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Busca */}
+          <div className="flex-1">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar produtos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
             </div>
           </div>
-        </div>
 
-        {/* Lista de Produtos */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-500">Carregando produtos...</p>
-            </div>
-          ) : filteredAndSortedProducts.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-gray-500">Nenhum produto encontrado</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Produto
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Categoria
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Preço
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estoque
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAndSortedProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {product.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {product.description}
-                          </div>
+          {/* Ordenação */}
+          <div className="flex gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="name">Nome</option>
+              <option value="category">Categoria</option>
+              <option value="price">Preço</option>
+              <option value="stock">Estoque</option>
+            </select>
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              {sortOrder === 'asc' ? (
+                <ArrowUpIcon className="h-4 w-4" />
+              ) : (
+                <ArrowDownIcon className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de Produtos */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-2 text-gray-500">Carregando produtos...</p>
+          </div>
+        ) : filteredAndSortedProducts.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-gray-500">Nenhum produto encontrado</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Produto
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Categoria
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Preço
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estoque
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ações
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredAndSortedProducts.map((product) => (
+                  <tr key={product.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {product.name}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {product.category}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        R$ {parseFloat(product.price).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {product.stock}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          product.stock > product.minStock
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {product.stock > product.minStock ? 'Em Estoque' : 'Baixo Estoque'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="text-sm text-gray-500">
+                          {product.description}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {product.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      R$ {parseFloat(product.price).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {product.stock} unidades
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        product.stock === 0
+                          ? 'bg-red-100 text-red-800'
+                          : product.stock <= (product.minStock || 5)
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {product.stock === 0 ? 'Sem Estoque' : 
+                         product.stock <= (product.minStock || 5) ? 'Estoque Baixo' : 'Disponível'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end space-x-2">
                         <button
                           onClick={() => openEditModal(product)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Editar"
                         >
-                          Editar
+                          <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteProduct(product.id)}
                           className="text-red-600 hover:text-red-900"
+                          title="Excluir"
                         >
-                          Deletar
+                          <TrashIcon className="h-4 w-4" />
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
+      {/* Modal de Adicionar/Editar Produto */}
       {showAddModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -414,6 +415,7 @@ const Products = () => {
           </div>
         </div>
       )}
+    </div>
   );
 };
 
