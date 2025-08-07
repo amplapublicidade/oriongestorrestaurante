@@ -1,6 +1,6 @@
 // Modo de demonstração - funciona sem backend
-export const DEMO_MODE = process.env.NODE_ENV === 'production' && 
-  window.location.hostname !== 'localhost';
+// DESABILITADO: Agora temos backend em produção
+export const DEMO_MODE = false;
 
 export const DEMO_USER = {
   id: 'demo-user-123',
