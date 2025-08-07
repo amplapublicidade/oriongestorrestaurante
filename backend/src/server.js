@@ -61,6 +61,26 @@ app.use('/api/products', cacheMiddleware(300)); // 5 min cache
 app.use('/api/suppliers', cacheMiddleware(300));
 app.use('/api/inventory', cacheMiddleware(60)); // 1 min cache
 
+// Rota raiz
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Orion Backend API - Bem-vindo!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      docs: '/api-docs',
+      auth: '/api/auth',
+      products: '/api/products',
+      suppliers: '/api/suppliers',
+      orders: '/api/orders',
+      inventory: '/api/inventory'
+    }
+  });
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.status(200).json({
