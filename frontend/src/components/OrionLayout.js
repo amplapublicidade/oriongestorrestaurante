@@ -11,7 +11,6 @@ const OrionLayout = ({ children }) => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
