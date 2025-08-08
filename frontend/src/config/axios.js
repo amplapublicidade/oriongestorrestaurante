@@ -2,8 +2,10 @@ import axios from 'axios';
 import { DEMO_MODE, DEMO_DATA, simulateApiDelay, simulateRandomError } from './demoMode';
 
 // Configuração base do axios
+// A URL da API agora é definida por uma variável de ambiente padrão (Create React App).
+// Isso é mais seguro e flexível, permitindo configurações diferentes para produção e desenvolvimento.
 const api = axios.create({
-  baseURL: (window.ENV && window.ENV.REACT_APP_API_URL) || process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
