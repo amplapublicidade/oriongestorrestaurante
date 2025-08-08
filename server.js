@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 10000;
 // Middleware
 app.use(cors({
   origin: [
-    'http://localhost:8000',
+    process.env.FRONTEND_URL || 'http://localhost:8000',
     'https://orion-gestor.netlify.app',
     'https://orion-gestor-restaurante.netlify.app',
     'https://wondrous-bavarois-f4498e.netlify.app'
