@@ -8,7 +8,17 @@ const AuthContext = createContext({});
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth deve ser usado dentro de AuthProvider');
+    console.warn('useAuth deve ser usado dentro de AuthProvider');
+    return {
+      user: null,
+      loading: false,
+      login: () => Promise.resolve({ success: false }),
+      register: () => Promise.resolve({ success: false }),
+      logout: () => {},
+      isAuthenticated: false,
+      updateProfile: () => Promise.resolve({ success: false }),
+      changePassword: () => Promise.resolve({ success: false })
+    };
   }
   return context;
 };
@@ -200,6 +210,30 @@ const AuthProvider = ({ children }) => {
       return { success: false, message };
     }
   };
+
+  // Se ainda está carregando, mostrar loading
+  if (loading) {
+    return (
+      <AuthContext.Provider value={{
+        user: null,
+        token: null,
+        loading: true,
+        login: () => Promise.resolve({ success: false }),
+        register: () => Promise.resolve({ success: false }),
+        logout: () => {},
+        updateProfile: () => Promise.resolve({ success: false }),
+        changePassword: () => Promise.resolve({ success: false }),
+        isAuthenticated: false
+      }}>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Carregando...</p>
+          </div>
+        </div>
+      </AuthContext.Provider>
+    );
+  }
 
   const value = {
     user,
