@@ -1,0 +1,13 @@
+{
+  "name": "orion-gestor-restaurante",
+  "version": "1.0.0",
+  "description": "Sistema completo de gestão para restaurantes",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "build": "cd backend && npm install",
+    "dev": "cd backend && npm run dev"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
