@@ -7,17 +7,9 @@
   from = "/*"
   to = "/index.html"
   status = 200
-[build]
-  publish = "frontend/build"
-  command = "cd frontend && npm install && npm run build:netlify"
 
 [build.environment]
   NODE_VERSION = "18"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 
 [[headers]]
   for = "/*"
