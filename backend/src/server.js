@@ -46,7 +46,8 @@ app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:8000',
     'https://orion-gestor.netlify.app',
-    'https://orion-gestor-restaurante.netlify.app'
+    'https://orion-gestor-restaurante.netlify.app',
+    'https://wondrous-bavarois-f4498e.netlify.app'
   ],
   credentials: true
 }));
