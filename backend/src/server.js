@@ -100,11 +100,11 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
 
 // Rotas da API
 app.use('/api/auth', authRoutes);
+app.use('/api/branches', branchesRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/inventory', inventoryRoutes);
-app.use('/api/branches', branchesRoutes);
 
 // Rota 404
 app.use('*', (req, res) => {
