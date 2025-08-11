@@ -203,7 +203,6 @@ const OrionLayout = ({ children }) => {
       submenu: [
         { id: 'filiais', label: 'Filiais', path: '/filiais' },
         { id: 'colaboradores', label: 'Colaboradores', path: '/colaboradores' },
-        { id: 'clientes', label: 'Clientes', path: '/clientes' },
         { id: 'produtos', label: 'Produtos', path: '/products' }
       ]
     },
