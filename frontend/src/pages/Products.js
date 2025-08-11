@@ -4,10 +4,10 @@ import {
   PencilIcon,
   TrashIcon,
   MagnifyingGlassIcon,
-  PackageIcon,
+  CubeIcon,
   XMarkIcon,
-  UploadIcon,
-  DownloadIcon,
+  ArrowUpTrayIcon,
+  ArrowDownTrayIcon,
   EyeIcon,
   EyeSlashIcon
 } from '@heroicons/react/24/outline';
@@ -394,14 +394,14 @@ const Products = () => {
             onClick={() => setShowUploadModal(true)}
             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
-            <UploadIcon className="w-5 h-5" />
+            <ArrowUpTrayIcon className="w-5 h-5" />
             Importar Excel
           </button>
           <button
             onClick={downloadTemplate}
             className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
-            <DownloadIcon className="w-5 h-5" />
+            <ArrowDownTrayIcon className="w-5 h-5" />
             Template
           </button>
           <button
@@ -437,7 +437,7 @@ const Products = () => {
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="p-8 text-center">
-            <PackageIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <CubeIcon className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum produto encontrado</h3>
             <p className="mt-1 text-sm text-gray-500">
               {searchTerm ? 'Tente ajustar os termos de busca.' : 'Comece criando o primeiro produto ou importando via Excel.'}
