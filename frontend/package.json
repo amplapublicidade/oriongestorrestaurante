@@ -8,7 +8,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "serve": "serve -s build -l 8000",
+    "preview": "npx http-server ./build -p 8000 -s",
     "build:netlify": "GENERATE_SOURCEMAP=false react-scripts build"
   },
   "keywords": ["restaurant", "management", "react", "frontend"],
