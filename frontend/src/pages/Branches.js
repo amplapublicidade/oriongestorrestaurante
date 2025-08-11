@@ -7,7 +7,8 @@ import {
   BuildingOfficeIcon,
   MapPinIcon,
   PhoneIcon,
-  EnvelopeIcon
+  EnvelopeIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import api from '../config/axios';
 import toast from 'react-hot-toast';
@@ -29,9 +30,70 @@ const Branches = () => {
     code: ''
   });
 
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
   useEffect(() => {
     loadBranches();
   }, []);
+
+  // Validação em tempo real
+  useEffect(() => {
+    if (touched.name || touched.email || touched.phone || touched.address || touched.city || touched.state || touched.zip || touched.code) {
+      validateForm();
+    }
+  }, [formData, touched]);
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    // Campos obrigatórios
+    if (!formData.name.trim()) {
+      newErrors.name = 'Nome é obrigatório';
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Nome deve ter pelo menos 2 caracteres';
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = 'E-mail é obrigatório';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'E-mail inválido';
+    }
+    
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Telefone é obrigatório';
+    } else if (formData.phone.trim().length < 8) {
+      newErrors.phone = 'Telefone deve ter pelo menos 8 caracteres';
+    }
+    
+    if (!formData.address.trim()) {
+      newErrors.address = 'Endereço é obrigatório';
+    }
+    
+    if (!formData.city.trim()) {
+      newErrors.city = 'Cidade é obrigatória';
+    }
+    
+    if (!formData.state.trim()) {
+      newErrors.state = 'Estado é obrigatório';
+    }
+    
+    if (!formData.zip.trim()) {
+      newErrors.zip = 'CEP é obrigatório';
+    }
+    
+    if (!formData.code.trim()) {
+      newErrors.code = 'Código é obrigatório';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleFieldChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
 
   const loadBranches = async () => {
     try {
@@ -77,6 +139,12 @@ const Branches = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      toast.error('Por favor, preencha todos os campos obrigatórios corretamente');
+      return;
+    }
+    
     try {
       if (editingBranch) {
         const response = await api.put(`/branches/${editingBranch.id}`, formData);
@@ -88,20 +156,30 @@ const Branches = () => {
       closeModal();
       loadBranches();
     } catch (error) {
-      console.error('Erro ao salvar filial:', error);
-      toast.error('Erro ao salvar filial');
+      // Log detalhado do erro para depuração no console do navegador
+      console.error('Erro ao salvar filial:', error.response?.data || error.message);
+
+      // Tenta extrair mensagens de erro de validação do backend (padrão do express-validator)
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const errorMessages = error.response.data.errors.map(err => err.msg).join('\n');
+        toast.error(errorMessages);
+      } else {
+        const msg = error.response?.data?.message || 'Erro ao salvar filial. Verifique os dados e tente novamente.';
+        toast.error(msg);
+      }
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Tem certeza que deseja excluir esta filial?')) return;
     try {
-      const response = await api.delete(`/branches/${id}`);
-      if (response.data?.success) toast.success('Filial excluída com sucesso!');
+      await api.delete(`/branches/${id}`);
+      toast.success('Filial excluída com sucesso!');
       loadBranches();
     } catch (error) {
-      console.error('Erro ao excluir filial:', error);
-      toast.error('Erro ao excluir filial');
+      console.error('Erro ao excluir filial:', error.response?.data || error.message);
+      const msg = error.response?.data?.message || 'Erro ao excluir filial.';
+      toast.error(msg);
     }
   };
 
@@ -112,18 +190,14 @@ const Branches = () => {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Filiais</h1>
-          <p className="mt-1 text-sm text-gray-500">Gerencie as filiais da sua empresa</p>
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">Gerenciar Filiais</h1>
         <button
           onClick={() => setShowModal(true)}
-          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
         >
-          <PlusIcon className="h-4 w-4 mr-2" />
+          <PlusIcon className="w-5 h-5" />
           Nova Filial
         </button>
       </div>
@@ -207,97 +281,187 @@ const Branches = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
-            <div className="mt-1">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">{editingBranch ? 'Editar Filial' : 'Nova Filial'}</h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Nome</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Código</label>
-                    <input
-                      type="text"
-                      value={formData.code}
-                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Telefone</label>
-                    <input
-                      type="text"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Endereço</label>
-                    <input
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Cidade</label>
-                    <input
-                      type="text"
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Estado</label>
-                    <input
-                      type="text"
-                      value={formData.state}
-                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">CEP</label>
-                    <input
-                      type="text"
-                      value={formData.zip}
-                      onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3 mt-4">
-                  <button type="button" onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
-                    Cancelar
-                  </button>
-                  <button type="submit" className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-                    {editingBranch ? 'Atualizar' : 'Adicionar'}
-                  </button>
-                </div>
-              </form>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Nova Filial</h2>
+              <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">
+                <XMarkIcon className="w-6 h-6" />
+              </button>
             </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, name: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.name ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Nome da filial"
+                  />
+                  {errors.name && touched.name && (
+                    <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    E-mail <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleFieldChange('email', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="email@exemplo.com"
+                  />
+                  {errors.email && touched.email && (
+                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Telefone <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.phone}
+                    onChange={(e) => handleFieldChange('phone', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, phone: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.phone ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="(11) 99999-9999"
+                  />
+                  {errors.phone && touched.phone && (
+                    <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Código <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.code}
+                    onChange={(e) => handleFieldChange('code', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, code: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.code ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Código da filial"
+                  />
+                  {errors.code && touched.code && (
+                    <p className="text-red-500 text-sm mt-1">{errors.code}</p>
+                  )}
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Endereço <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => handleFieldChange('address', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, address: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.address ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Rua, número, complemento"
+                  />
+                  {errors.address && touched.address && (
+                    <p className="text-red-500 text-sm mt-1">{errors.address}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cidade <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => handleFieldChange('city', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, city: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.city ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Nome da cidade"
+                  />
+                  {errors.city && touched.city && (
+                    <p className="text-red-500 text-sm mt-1">{errors.city}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Estado <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.state}
+                    onChange={(e) => handleFieldChange('state', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, state: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.state ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="UF"
+                  />
+                  {errors.state && touched.state && (
+                    <p className="text-red-500 text-sm mt-1">{errors.state}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    CEP <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.zip}
+                    onChange={(e) => handleFieldChange('zip', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, zip: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.zip ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="00000-000"
+                  />
+                  {errors.zip && touched.zip && (
+                    <p className="text-red-500 text-sm mt-1">{errors.zip}</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={Object.keys(errors).length > 0}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  Salvar Filial
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -306,4 +470,3 @@ const Branches = () => {
 };
 
 export default Branches;
-

@@ -36,33 +36,52 @@ router.post(
   auth,
   [
     body('name').trim().isLength({ min: 2, max: 120 }).withMessage('Nome deve ter entre 2 e 120 caracteres'),
-    body('email').optional().isEmail().withMessage('E-mail inválido'),
-    body('phone').optional().isString().isLength({ min: 8 }),
+    body('email').trim().isEmail().withMessage('E-mail inválido'),
+    body('phone').trim().isLength({ min: 8, max: 20 }).withMessage('Telefone deve ter entre 8 e 20 caracteres'),
+    body('address').trim().isLength({ min: 5, max: 200 }).withMessage('Endereço deve ter entre 5 e 200 caracteres'),
+    body('city').trim().isLength({ min: 2, max: 100 }).withMessage('Cidade deve ter entre 2 e 100 caracteres'),
+    body('state').trim().isLength({ min: 2, max: 2 }).withMessage('Estado deve ter exatamente 2 caracteres (UF)'),
+    body('zip').trim().isLength({ min: 8, max: 9 }).withMessage('CEP deve ter entre 8 e 9 caracteres'),
+    body('code').trim().isLength({ min: 1, max: 50 }).withMessage('Código é obrigatório e deve ter até 50 caracteres'),
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, message: 'Dados inválidos', errors: errors.array() });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Dados inválidos', 
+        errors: errors.array() 
+      });
     }
+    
     try {
       const payload = {
-        name: req.body.name,
-        email: req.body.email || null,
-        phone: req.body.phone || null,
-        address: req.body.address || null,
-        city: req.body.city || null,
-        state: req.body.state || null,
-        zip: req.body.zip || null,
-        code: req.body.code || null,
+        name: req.body.name.trim(),
+        email: req.body.email.trim(),
+        phone: req.body.phone.trim(),
+        address: req.body.address.trim(),
+        city: req.body.city.trim(),
+        state: req.body.state.trim().toUpperCase(),
+        zip: req.body.zip.trim(),
+        code: req.body.code.trim(),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
+      
       const ref = await db.collection('branches').add(payload);
       const doc = await ref.get();
-      res.status(201).json({ success: true, message: 'Filial criada com sucesso', data: { branch: { id: doc.id, ...doc.data() } } });
+      
+      res.status(201).json({ 
+        success: true, 
+        message: 'Filial criada com sucesso', 
+        data: { branch: { id: doc.id, ...doc.data() } } 
+      });
     } catch (error) {
       console.error('Erro ao criar filial:', error);
-      res.status(400).json({ success: false, message: error.message || 'Erro ao criar filial' });
+      res.status(500).json({ 
+        success: false, 
+        message: 'Erro interno do servidor ao criar filial' 
+      });
     }
   }
 );
