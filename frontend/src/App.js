@@ -14,6 +14,18 @@ import Suppliers from './pages/Suppliers';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Branches from './pages/Branches';
+import SupplierTypes from './pages/SupplierTypes';
+import SupplierContracts from './pages/SupplierContracts';
+import Orders from './pages/Orders';
+import SendSupplier from './pages/SendSupplier';
+import SalesManage from './pages/SalesManage';
+import SalesGoals from './pages/SalesGoals';
+import CashFlow from './pages/CashFlow';
+import AccountsPayable from './pages/AccountsPayable';
+import FinancialReports from './pages/FinancialReports';
+import Backup from './pages/Backup';
+import SettingsPage from './pages/Settings';
+import SystemLogs from './pages/SystemLogs';
 
 // Criar cliente React Query
 const queryClient = new QueryClient({
@@ -96,6 +108,19 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/filiais" element={<ProtectedRoute><OrionLayout><Branches /></OrionLayout></ProtectedRoute>} />
+              <Route path="/supplier-types" element={<ProtectedRoute><OrionLayout><SupplierTypes /></OrionLayout></ProtectedRoute>} />
+              <Route path="/supplier-contracts" element={<ProtectedRoute><OrionLayout><SupplierContracts /></OrionLayout></ProtectedRoute>} />
+              <Route path="/orders" element={<ProtectedRoute><OrionLayout><Orders /></OrionLayout></ProtectedRoute>} />
+              <Route path="/send-supplier" element={<ProtectedRoute><OrionLayout><SendSupplier /></OrionLayout></ProtectedRoute>} />
+              <Route path="/sales-manage" element={<ProtectedRoute><OrionLayout><SalesManage /></OrionLayout></ProtectedRoute>} />
+              <Route path="/sales-goals" element={<ProtectedRoute><OrionLayout><SalesGoals /></OrionLayout></ProtectedRoute>} />
+              <Route path="/cash-flow" element={<ProtectedRoute><OrionLayout><CashFlow /></OrionLayout></ProtectedRoute>} />
+              <Route path="/accounts-payable" element={<ProtectedRoute><OrionLayout><AccountsPayable /></OrionLayout></ProtectedRoute>} />
+              <Route path="/financial-reports" element={<ProtectedRoute><OrionLayout><FinancialReports /></OrionLayout></ProtectedRoute>} />
+              <Route path="/backup" element={<ProtectedRoute><OrionLayout><Backup /></OrionLayout></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><OrionLayout><SettingsPage /></OrionLayout></ProtectedRoute>} />
+              <Route path="/system-logs" element={<ProtectedRoute><OrionLayout><SystemLogs /></OrionLayout></ProtectedRoute>} />
               <Route
                 path="/filiais"
                 element={
