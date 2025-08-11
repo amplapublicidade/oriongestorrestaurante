@@ -13,6 +13,7 @@ import Products from './pages/Products';
 import Suppliers from './pages/Suppliers';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
+import Branches from './pages/Branches';
 
 // Criar cliente React Query
 const queryClient = new QueryClient({
@@ -91,6 +92,16 @@ function App() {
                   <ProtectedRoute>
                     <OrionLayout>
                       <Reports />
+                    </OrionLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/filiais"
+                element={
+                  <ProtectedRoute>
+                    <OrionLayout>
+                      <Branches />
                     </OrionLayout>
                   </ProtectedRoute>
                 }

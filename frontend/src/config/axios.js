@@ -2,10 +2,8 @@ import axios from 'axios';
 import { DEMO_MODE, DEMO_DATA, simulateApiDelay, simulateRandomError } from './demoMode';
 
 // Configuração base do axios
-// A URL da API agora é definida por uma variável de ambiente padrão (Create React App).
-// Isso é mais seguro e flexível, permitindo configurações diferentes para produção e desenvolvimento.
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
+  baseURL: (window.ENV && window.ENV.REACT_APP_API_URL) || process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -58,6 +56,21 @@ api.interceptors.request.use(
                 totalPages: 1,
                 currentPage: 1,
                 total: DEMO_DATA.suppliers.length
+              }
+            }
+          });
+        }
+      }
+      if (url?.includes('/branches')) {
+        if (method === 'get') {
+          return Promise.resolve({
+            data: {
+              success: true,
+              data: {
+                branches: [
+                  { id: 'br-1', name: 'Matriz', code: 'MAT', city: 'São Paulo', state: 'SP', phone: '(11) 1111-1111' },
+                  { id: 'br-2', name: 'Filial Centro', code: 'CTR', city: 'Rio de Janeiro', state: 'RJ', phone: '(21) 2222-2222' }
+                ]
               }
             }
           });
