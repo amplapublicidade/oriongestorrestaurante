@@ -27,10 +27,6 @@ const Login = () => {
   const [touched, setTouched] = useState({});
   const [passwordStrength, setPasswordStrength] = useState(0);
 
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   // Validar em tempo real
   useEffect(() => {
     if (touched.email || touched.password) {
@@ -52,6 +48,11 @@ const Login = () => {
       setPasswordStrength(0);
     }
   }, [formData.password]);
+
+  // Redirecionar após executar os hooks para manter a ordem consistente
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const validateField = () => {
     const newErrors = {};
