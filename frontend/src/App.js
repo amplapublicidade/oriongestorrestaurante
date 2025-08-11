@@ -14,6 +14,7 @@ import Suppliers from './pages/Suppliers';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Branches from './pages/Branches';
+import Users from './pages/Users';
 import SupplierTypes from './pages/SupplierTypes';
 import SupplierContracts from './pages/SupplierContracts';
 import Orders from './pages/Orders';
@@ -109,6 +110,7 @@ function App() {
                 }
               />
               <Route path="/filiais" element={<ProtectedRoute><OrionLayout><Branches /></OrionLayout></ProtectedRoute>} />
+              <Route path="/colaboradores" element={<ProtectedRoute><OrionLayout><Users /></OrionLayout></ProtectedRoute>} />
               <Route path="/supplier-types" element={<ProtectedRoute><OrionLayout><SupplierTypes /></OrionLayout></ProtectedRoute>} />
               <Route path="/supplier-contracts" element={<ProtectedRoute><OrionLayout><SupplierContracts /></OrionLayout></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><OrionLayout><Orders /></OrionLayout></ProtectedRoute>} />
