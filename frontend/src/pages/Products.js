@@ -251,6 +251,7 @@ const Products = () => {
             console.log(`Linha ${i}:`, rows[i]);
             console.log(`Comprimento: ${rows[i].length}`);
             console.log(`Conteúdo detalhado:`, JSON.stringify(rows[i]));
+            console.log(`Valores individuais: 0="${rows[i][0]}", 1="${rows[i][1]}", 2="${rows[i][2]}", 3="${rows[i][3]}"`);
           }
           
           setUploadProgress(20);
@@ -277,7 +278,7 @@ const Products = () => {
                 console.log(`📝 Processando linha: ${fornecedor} | ${produto} | ${unidade} | ${estoque}`);
                 console.log(`🔍 Array completo da linha:`, row);
                 console.log(`🔍 Comprimento da linha: ${row.length}`);
-                console.log(`🔍 Índices: 0=${row[0]}, 2=${row[2]}, 4=${row[4]}, 5=${row[5]}`);
+                console.log(`🔍 Valores extraídos: fornecedor="${fornecedor}", produto="${produto}", unidade="${unidade}", estoque="${estoque}"`);
                 
                 if (fornecedor && produto && unidade) {
                   try {
