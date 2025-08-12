@@ -226,6 +226,7 @@ const Products = () => {
       return;
     }
 
+    console.log('🚀 Iniciando processamento do Excel...');
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -233,6 +234,7 @@ const Products = () => {
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
+          console.log('📖 Arquivo lido, processando dados...');
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
@@ -241,25 +243,32 @@ const Products = () => {
 
           // Pular o cabeçalho (primeira linha)
           const rows = jsonData.slice(1);
+          console.log(`📊 Total de linhas encontradas: ${rows.length}`);
           
           setUploadProgress(20);
           
           // Processar dados em lotes
           const batchSize = 10;
           let processed = 0;
+          let errors = 0;
           
           for (let i = 0; i < rows.length; i += batchSize) {
             const batch = rows.slice(i, i + batchSize);
+            console.log(`🔄 Processando lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(rows.length/batchSize)}`);
             
             for (const row of batch) {
               if (row.length >= 4) {
                 const [fornecedor, produto, unidade, estoque] = row;
+                console.log(`📝 Processando linha: ${fornecedor} | ${produto} | ${unidade} | ${estoque}`);
                 
                 if (fornecedor && produto && unidade) {
                   try {
+                    console.log(`🏭 Criando/verificando fornecedor: ${fornecedor}`);
                     // Criar ou encontrar fornecedor
                     let supplierId = await findOrCreateSupplier(fornecedor.trim());
+                    console.log(`✅ Fornecedor processado, ID: ${supplierId}`);
                     
+                    console.log(`📦 Criando produto: ${produto}`);
                     // Criar produto
                     await createProduct({
                       name: produto.trim(),
@@ -270,11 +279,15 @@ const Products = () => {
                       price: 0,
                       description: `Importado via Excel - ${fornecedor.trim()}`
                     });
+                    console.log(`✅ Produto criado: ${produto}`);
                     
                     processed++;
                   } catch (error) {
-                    console.error(`Erro ao processar linha ${i + 1}:`, error);
+                    console.error(`❌ Erro ao processar linha ${i + 1}:`, error);
+                    errors++;
                   }
+                } else {
+                  console.log(`⚠️ Linha ignorada - dados insuficientes:`, row);
                 }
               }
             }
@@ -283,6 +296,7 @@ const Products = () => {
             await new Promise(resolve => setTimeout(resolve, 100)); // Pequena pausa para não sobrecarregar
           }
           
+          console.log(`🎉 Processamento concluído! Processados: ${processed}, Erros: ${errors}`);
           setUploadProgress(100);
           toast.success(`Upload concluído! ${processed} produtos processados com sucesso.`);
           
@@ -292,7 +306,7 @@ const Products = () => {
           setUploadFile(null);
           
         } catch (error) {
-          console.error('Erro ao processar arquivo Excel:', error);
+          console.error('❌ Erro ao processar arquivo Excel:', error);
           toast.error('Erro ao processar arquivo Excel. Verifique o formato.');
         } finally {
           setIsUploading(false);
@@ -303,7 +317,7 @@ const Products = () => {
       reader.readAsArrayBuffer(uploadFile);
       
     } catch (error) {
-      console.error('Erro no upload:', error);
+      console.error('❌ Erro no upload:', error);
       toast.error('Erro durante o upload do arquivo');
       setIsUploading(false);
       setUploadProgress(0);
@@ -312,15 +326,18 @@ const Products = () => {
 
   const findOrCreateSupplier = async (supplierName) => {
     try {
+      console.log(`🔍 Procurando fornecedor existente: ${supplierName}`);
       // Tentar encontrar fornecedor existente
       const existingSupplier = suppliers.find(s => 
         s.name.toLowerCase() === supplierName.toLowerCase()
       );
       
       if (existingSupplier) {
+        console.log(`✅ Fornecedor encontrado: ${existingSupplier.name} (ID: ${existingSupplier.id})`);
         return existingSupplier.id;
       }
       
+      console.log(`🆕 Criando novo fornecedor: ${supplierName}`);
       // Criar novo fornecedor
       const response = await api.post('/suppliers', {
         name: supplierName,
@@ -333,8 +350,11 @@ const Products = () => {
         code: `SUP_${Date.now()}`
       });
       
+      console.log(`📡 Resposta da API suppliers:`, response.data);
+      
       if (response.data.success) {
         const newSupplier = response.data.data.supplier;
+        console.log(`✅ Fornecedor criado com sucesso:`, newSupplier);
         setSuppliers(prev => [...prev, newSupplier]);
         return newSupplier.id;
       }
@@ -342,16 +362,19 @@ const Products = () => {
       throw new Error('Falha ao criar fornecedor');
       
     } catch (error) {
-      console.error('Erro ao criar fornecedor:', error);
+      console.error(`❌ Erro ao criar fornecedor ${supplierName}:`, error);
       throw error;
     }
   };
 
   const createProduct = async (productData) => {
     try {
-      await api.post('/products', productData);
+      console.log(`📦 Enviando produto para API:`, productData);
+      const response = await api.post('/products', productData);
+      console.log(`📡 Resposta da API products:`, response.data);
+      return response.data;
     } catch (error) {
-      console.error('Erro ao criar produto:', error);
+      console.error(`❌ Erro ao criar produto:`, error);
       throw error;
     }
   };
