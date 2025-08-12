@@ -257,7 +257,7 @@ const Products = () => {
             console.log(`🔄 Processando lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(rows.length/batchSize)}`);
             
             for (const row of batch) {
-              if (row.length >= 4) {
+              if (row.length >= 6) {
                 // Corrigindo mapeamento das colunas baseado nos logs
                 // Coluna 0: FORNECEDOR, Coluna 2: PRODUTO, Coluna 4: UNIDADE, Coluna 5: ESTOQUE
                 const fornecedor = row[0];  // Primeira coluna
@@ -266,6 +266,9 @@ const Products = () => {
                 const estoque = row[5];     // Sexta coluna (índice 5) - CORRIGIDO
                 
                 console.log(`📝 Processando linha: ${fornecedor} | ${produto} | ${unidade} | ${estoque}`);
+                console.log(`🔍 Array completo da linha:`, row);
+                console.log(`🔍 Comprimento da linha: ${row.length}`);
+                console.log(`🔍 Índices: 0=${row[0]}, 2=${row[2]}, 4=${row[4]}, 5=${row[5]}`);
                 
                 if (fornecedor && produto && unidade) {
                   try {
