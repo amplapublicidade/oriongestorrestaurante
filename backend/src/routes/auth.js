@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const { auth } = require('../middleware/auth');
 const User = require('../models/User');
-const db = require('../db'); // Added db import
+const { db } = require('../config/firebase');
 
 // Middleware para verificar se o usuário é admin
 const requireAdmin = (req, res, next) => {
