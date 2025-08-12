@@ -245,6 +245,13 @@ const Products = () => {
           const rows = jsonData.slice(1);
           console.log(`📊 Total de linhas encontradas: ${rows.length}`);
           
+          // Debug: verificar estrutura das primeiras linhas
+          console.log('🔍 Estrutura das primeiras 3 linhas:');
+          for (let i = 0; i < Math.min(3, rows.length); i++) {
+            console.log(`Linha ${i}:`, rows[i]);
+            console.log(`Comprimento: ${rows[i].length}`);
+          }
+          
           setUploadProgress(20);
           
           // Processar dados em lotes
@@ -257,6 +264,7 @@ const Products = () => {
             console.log(`🔄 Processando lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(rows.length/batchSize)}`);
             
             for (const row of batch) {
+              console.log(`🔍 Verificando linha:`, row, `comprimento: ${row.length}`);
               if (row.length >= 6) {
                 // Corrigindo mapeamento das colunas baseado nos logs
                 // Coluna 0: FORNECEDOR, Coluna 2: PRODUTO, Coluna 4: UNIDADE, Coluna 5: ESTOQUE
