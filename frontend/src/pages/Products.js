@@ -226,35 +226,27 @@ const Products = () => {
       return;
     }
 
-    console.log('🚀 Iniciando processamento do Excel...');
     setIsUploading(true);
     setUploadProgress(0);
+    console.log('🚀 Iniciando processamento do Excel...');
 
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
-          console.log('📖 Arquivo lido, processando dados...');
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          // Usar defval para garantir que células vazias se tornem strings vazias
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+          console.log('📖 Arquivo lido, processando dados...');
 
           // Pular o cabeçalho (primeira linha)
           const rows = jsonData.slice(1);
-          console.log(`📊 Total de linhas encontradas: ${rows.length}`);
+          console.log(`📊 Total de linhas de dados encontradas: ${rows.length}`);
           
-          // Debug: verificar estrutura das primeiras linhas
-          console.log('🔍 Estrutura das primeiras 3 linhas:');
-          for (let i = 0; i < Math.min(3, rows.length); i++) {
-            console.log(`Linha ${i}:`, rows[i]);
-            console.log(`Comprimento: ${rows[i].length}`);
-            console.log(`Conteúdo detalhado:`, JSON.stringify(rows[i]));
-            console.log(`Valores individuais: 0="${rows[i][0]}", 1="${rows[i][1]}", 2="${rows[i][2]}", 3="${rows[i][3]}"`);
-          }
-          
-          setUploadProgress(20);
+          setUploadProgress(10);
           
           // Processar dados em lotes
           const batchSize = 10;
@@ -263,10 +255,8 @@ const Products = () => {
           
           for (let i = 0; i < rows.length; i += batchSize) {
             const batch = rows.slice(i, i + batchSize);
-            console.log(`🔄 Processando lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(rows.length/batchSize)}`);
             
             for (const row of batch) {
-              console.log(`🔍 Verificando linha:`, row, `comprimento: ${row.length}`);
               if (row.length >= 3) {
                 // Mapeamento correto baseado na estrutura real do Excel
                 // Coluna 0: FORNECEDOR, Coluna 1: PRODUTO, Coluna 2: UNIDADE, Coluna 3: ESTOQUE (opcional)
@@ -276,9 +266,6 @@ const Products = () => {
                 const estoque = row[3] || 0; // Quarta coluna (índice 3) - opcional
                 
                 console.log(`📝 Processando linha: ${fornecedor} | ${produto} | ${unidade} | ${estoque}`);
-                console.log(`🔍 Array completo da linha:`, row);
-                console.log(`🔍 Comprimento da linha: ${row.length}`);
-                console.log(`🔍 Valores extraídos: fornecedor="${fornecedor}", produto="${produto}", unidade="${unidade}", estoque="${estoque}"`);
                 
                 if (fornecedor && produto && unidade) {
                   try {
