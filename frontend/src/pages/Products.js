@@ -259,11 +259,11 @@ const Products = () => {
             for (const row of batch) {
               if (row.length >= 4) {
                 // Corrigindo mapeamento das colunas baseado nos logs
-                // Coluna 0: FORNECEDOR, Coluna 2: PRODUTO, Coluna 3: UNIDADE, Coluna 4: ESTOQUE
+                // Coluna 0: FORNECEDOR, Coluna 2: PRODUTO, Coluna 4: UNIDADE, Coluna 5: ESTOQUE
                 const fornecedor = row[0];  // Primeira coluna
                 const produto = row[2];     // Terceira coluna (índice 2)
-                const unidade = row[3];     // Quarta coluna (índice 3)
-                const estoque = row[4];     // Quinta coluna (índice 4)
+                const unidade = row[4];     // Quinta coluna (índice 4) - CORRIGIDO
+                const estoque = row[5];     // Sexta coluna (índice 5) - CORRIGIDO
                 
                 console.log(`📝 Processando linha: ${fornecedor} | ${produto} | ${unidade} | ${estoque}`);
                 
@@ -388,10 +388,10 @@ const Products = () => {
 
   const downloadTemplate = () => {
     const template = [
-      ['FORNECEDOR', '', 'PRODUTO', 'UNIDADE', 'ESTOQUE'],
-      ['SH HORTALIÇAS', '', 'ALFACE AMERICANA', 'UNIDADE', '0'],
-      ['HORTSUL', '', 'BERINGELA', 'KG', '0'],
-      ['COMPORTO', '', 'GARFO/FACA DESCART', 'UNIDADE', '0']
+      ['FORNECEDOR', '', 'PRODUTO', '', 'UNIDADE', 'ESTOQUE'],
+      ['SH HORTALIÇAS', '', 'ALFACE AMERICANA', '', 'UNIDADE', '0'],
+      ['HORTSUL', '', 'BERINGELA', '', 'KG', '0'],
+      ['COMPORTO', '', 'GARFO/FACA DESCART', '', 'UNIDADE', '0']
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(template);
