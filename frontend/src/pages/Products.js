@@ -250,6 +250,7 @@ const Products = () => {
           for (let i = 0; i < Math.min(3, rows.length); i++) {
             console.log(`Linha ${i}:`, rows[i]);
             console.log(`Comprimento: ${rows[i].length}`);
+            console.log(`Conteúdo detalhado:`, JSON.stringify(rows[i]));
           }
           
           setUploadProgress(20);
@@ -265,13 +266,13 @@ const Products = () => {
             
             for (const row of batch) {
               console.log(`🔍 Verificando linha:`, row, `comprimento: ${row.length}`);
-              if (row.length >= 6) {
-                // Corrigindo mapeamento das colunas baseado nos logs
-                // Coluna 0: FORNECEDOR, Coluna 2: PRODUTO, Coluna 4: UNIDADE, Coluna 5: ESTOQUE
+              if (row.length >= 3) {
+                // Mapeamento correto baseado na estrutura real do Excel
+                // Coluna 0: FORNECEDOR, Coluna 1: PRODUTO, Coluna 2: UNIDADE, Coluna 3: ESTOQUE (opcional)
                 const fornecedor = row[0];  // Primeira coluna
-                const produto = row[2];     // Terceira coluna (índice 2)
-                const unidade = row[4];     // Quinta coluna (índice 4) - CORRIGIDO
-                const estoque = row[5];     // Sexta coluna (índice 5) - CORRIGIDO
+                const produto = row[1];     // Segunda coluna (índice 1)
+                const unidade = row[2];     // Terceira coluna (índice 2)
+                const estoque = row[3] || 0; // Quarta coluna (índice 3) - opcional
                 
                 console.log(`📝 Processando linha: ${fornecedor} | ${produto} | ${unidade} | ${estoque}`);
                 console.log(`🔍 Array completo da linha:`, row);
@@ -399,10 +400,10 @@ const Products = () => {
 
   const downloadTemplate = () => {
     const template = [
-      ['FORNECEDOR', '', 'PRODUTO', '', 'UNIDADE', 'ESTOQUE'],
-      ['SH HORTALIÇAS', '', 'ALFACE AMERICANA', '', 'UNIDADE', '0'],
-      ['HORTSUL', '', 'BERINGELA', '', 'KG', '0'],
-      ['COMPORTO', '', 'GARFO/FACA DESCART', '', 'UNIDADE', '0']
+      ['FORNECEDOR', 'PRODUTO', 'UNIDADE', 'ESTOQUE'],
+      ['SH HORTALIÇAS', 'ALFACE AMERICANA', 'UNIDADE', '0'],
+      ['HORTSUL', 'BERINGELA', 'KG', '0'],
+      ['COMPORTO', 'GARFO/FACA DESCART', 'UNIDADE', '0']
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(template);
