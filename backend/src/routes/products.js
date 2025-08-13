@@ -134,8 +134,9 @@ router.post('/', auth, [
       minStock: parseFloat(minStock) || 0,
       price: parseFloat(price) || 0,
       description: description ? description.trim() : '',
-      createdAt: new Date(),
-      updatedAt: new Date()
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    isLowStock: (parseFloat(stock) || 0) <= (parseFloat(minStock) || 0)
     };
     
     const productRef = await db.collection('products').add(productData);
@@ -225,7 +226,8 @@ router.put('/:id', auth, [
       minStock: parseFloat(minStock) || 0,
       price: parseFloat(price) || 0,
       description: description ? description.trim() : '',
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      isLowStock: (parseFloat(stock) || 0) <= (parseFloat(minStock) || 0)
     };
     
     await productRef.update(updateData);
@@ -308,9 +310,13 @@ router.patch('/:id/stock', auth, [
       });
     }
     
+    const current = productDoc.data();
+    const newStock = parseFloat(stock);
+    const minStock = parseFloat(current.minStock) || 0;
     await productRef.update({
-      stock: parseFloat(stock),
-      updatedAt: new Date()
+      stock: newStock,
+      updatedAt: new Date(),
+      isLowStock: newStock <= minStock
     });
     
     res.json({

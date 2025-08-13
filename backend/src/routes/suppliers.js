@@ -84,45 +84,20 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Rota para criar novo fornecedor
-router.post('/', auth, [
+// Validação reutilizável para POST e PUT
+const supplierValidation = [
   body('name').trim().isLength({ min: 2, max: 120 }).withMessage('Nome deve ter entre 2 e 120 caracteres'),
-  body('email').optional({ nullable: true, checkFalsy: false }).custom((value) => {
-    if (value === '' || value === null || value === undefined) return true;
-    if (typeof value === 'string' && value.trim() === '') return true;
-    return require('validator').isEmail(value) ? true : 'E-mail inválido';
-  }).withMessage('E-mail inválido'),
-  body('phone').optional({ nullable: true, checkFalsy: false }).custom((value) => {
-    if (value === '' || value === null || value === undefined) return true;
-    if (typeof value === 'string' && value.trim() === '') return true;
-    return typeof value === 'string' && value.length >= 8 && value.length <= 20 ? true : 'Telefone deve ter entre 8 e 20 caracteres';
-  }).withMessage('Telefone deve ter entre 8 e 20 caracteres'),
-  body('address').optional({ nullable: true, checkFalsy: false }).custom((value) => {
-    if (value === '' || value === null || value === undefined) return true;
-    if (typeof value === 'string' && value.trim() === '') return true;
-    return typeof value === 'string' && value.length <= 200 ? true : 'Endereço deve ter no máximo 200 caracteres';
-  }).withMessage('Endereço deve ter no máximo 200 caracteres'),
-  body('city').optional({ nullable: true, checkFalsy: false }).custom((value) => {
-    if (value === '' || value === null || value === undefined) return true;
-    if (typeof value === 'string' && value.trim() === '') return true;
-    return typeof value === 'string' && value.length <= 100 ? true : 'Cidade deve ter no máximo 100 caracteres';
-  }).withMessage('Cidade deve ter no máximo 100 caracteres'),
-  body('state').optional({ nullable: true, checkFalsy: false }).custom((value) => {
-    if (value === '' || value === null || value === undefined) return true;
-    if (typeof value === 'string' && value.trim() === '') return true;
-    return typeof value === 'string' && value.length <= 2 ? true : 'Estado deve ter no máximo 2 caracteres';
-  }).withMessage('Estado deve ter no máximo 2 caracteres'),
-  body('zip').optional({ nullable: true, checkFalsy: false }).custom((value) => {
-    if (value === '' || value === null || value === undefined) return true;
-    if (typeof value === 'string' && value.trim() === '') return true;
-    return typeof value === 'string' && value.length <= 10 ? true : 'CEP deve ter no máximo 10 caracteres';
-  }).withMessage('CEP deve ter no máximo 10 caracteres'),
-  body('code').optional({ nullable: true, checkFalsy: false }).custom((value) => {
-    if (value === '' || value === null || value === undefined) return true;
-    if (typeof value === 'string' && value.trim() === '') return true;
-    return typeof value === 'string' && value.length <= 50 ? true : 'Código deve ter no máximo 50 caracteres';
-  }).withMessage('Código deve ter no máximo 50 caracteres'),
-], async (req, res) => {
+  body('email').optional({ checkFalsy: true }).isEmail().withMessage('E-mail inválido'),
+  body('phone').optional({ checkFalsy: true }).isString().isLength({ min: 8, max: 20 }).withMessage('Telefone deve ter entre 8 e 20 caracteres'),
+  body('address').optional({ checkFalsy: true }).isString().isLength({ max: 200 }).withMessage('Endereço deve ter no máximo 200 caracteres'),
+  body('city').optional({ checkFalsy: true }).isString().isLength({ max: 100 }).withMessage('Cidade deve ter no máximo 100 caracteres'),
+  body('state').optional({ checkFalsy: true }).isString().isLength({ max: 2 }).withMessage('Estado deve ter no máximo 2 caracteres'),
+  body('zip').optional({ checkFalsy: true }).isString().isLength({ max: 10 }).withMessage('CEP deve ter no máximo 10 caracteres'),
+  body('code').optional({ checkFalsy: true }).isString().isLength({ max: 50 }).withMessage('Código deve ter no máximo 50 caracteres')
+];
+
+// Rota para criar novo fornecedor
+router.post('/', auth, supplierValidation, async (req, res) => {
   console.log('🔍 POST /suppliers - Dados recebidos:', req.body);
   
   const errors = validationResult(req);
@@ -207,16 +182,7 @@ router.post('/', auth, [
 });
 
 // Rota para atualizar fornecedor
-router.put('/:id', auth, [
-  body('name').trim().isLength({ min: 2, max: 120 }).withMessage('Nome deve ter entre 2 e 120 caracteres'),
-  body('email').optional().isEmail().withMessage('E-mail inválido'),
-  body('phone').optional().isString().isLength({ min: 8, max: 20 }).withMessage('Telefone deve ter entre 8 e 20 caracteres'),
-  body('address').optional().isString().isLength({ max: 200 }).withMessage('Endereço deve ter no máximo 200 caracteres'),
-  body('city').optional().isString().isLength({ max: 100 }).withMessage('Cidade deve ter no máximo 100 caracteres'),
-  body('state').optional().isString().isLength({ max: 2 }).withMessage('Estado deve ter no máximo 2 caracteres'),
-  body('zip').optional().isString().isLength({ max: 10 }).withMessage('CEP deve ter no máximo 10 caracteres'),
-  body('code').optional().isString().isLength({ max: 50 }).withMessage('Código deve ter no máximo 50 caracteres'),
-], async (req, res) => {
+router.put('/:id', auth, supplierValidation, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({

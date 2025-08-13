@@ -31,6 +31,10 @@ const PORT = process.env.PORT || 3001;
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100, // limite de 100 requests por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Pula o rate limit para requisições autenticadas (com Bearer token)
+  skip: (req) => Boolean(req.headers.authorization),
   message: {
     success: false,
     message: 'Muitas requisições. Tente novamente em alguns minutos.'

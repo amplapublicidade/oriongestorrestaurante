@@ -128,26 +128,25 @@ router.get('/stock', auth, async (req, res) => {
         baseQuery = baseQuery.where('category', '==', category);
       }
 
-      const allSnapshot = await baseQuery.get();
-      let allLowStockProducts = [];
-      allSnapshot.forEach(doc => {
-        const productData = doc.data();
-        if (productData.stock <= productData.minStock) {
-          allLowStockProducts.push({ id: doc.id, ...productData });
-        }
-      });
-      
-      allLowStockProducts.sort((a, b) => a.stock - b.stock);
-      
-      const paginatedProducts = allLowStockProducts.slice(offset, offset + limitNum);
-      
+      const lowStockQuery = baseQuery.where('isLowStock', '==', true);
+      const totalSnapshot = await lowStockQuery.get();
+      const total = totalSnapshot.size;
+
+      const dataQuery = lowStockQuery
+        .orderBy('stock', 'asc')
+        .limit(limitNum)
+        .offset(offset);
+
+      const snapshot = await dataQuery.get();
+      const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
       res.json({
         success: true,
         data: {
-          products: paginatedProducts,
-          totalPages: Math.ceil(allLowStockProducts.length / limitNum),
+          products,
+          totalPages: Math.ceil(total / limitNum),
           currentPage: pageNum,
-          total: allLowStockProducts.length
+          total
         }
       });
       return;
@@ -230,7 +229,8 @@ router.post('/movement', [auth, ...validateInventoryMovement], async (req, res) 
       // 1. Atualiza o estoque do produto
       transaction.update(productRef, { 
         stock: newStock, 
-        updatedAt: new Date() 
+        updatedAt: new Date(),
+        isLowStock: newStock <= (productData.minStock || 0)
       });
 
       // 2. Cria o registro da movimentação

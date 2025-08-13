@@ -1,12 +1,10 @@
 const admin = require('firebase-admin');
 const path = require('path');
 
-// Configuração do Firebase Admin SDK usando arquivo JSON
-const serviceAccount = require('../../orion-gestor-firebase-adminsdk-fbsvc-ac432ef525.json');
-
-// Inicializar Firebase Admin SDK
+// Inicializar Firebase Admin SDK usando credenciais padrão do ambiente
+// Configure GOOGLE_APPLICATION_CREDENTIALS apontando para o JSON da conta de serviço
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.applicationDefault(),
   databaseURL: 'https://orion-gestor.firebaseio.com'
 });
 

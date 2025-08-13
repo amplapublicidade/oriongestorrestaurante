@@ -14,11 +14,15 @@ import {
 import api from '../config/axios';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import { useProducts } from '../hooks/useProducts';
+import { useSuppliers } from '../hooks/useSuppliers';
 
 const Products = () => {
-  const [products, setProducts] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { products = [], isLoading: loadingProducts, addProduct, updateProduct, deleteProduct } = useProducts();
+  const { suppliers = [], isLoading: loadingSuppliers, addSupplier } = useSuppliers();
+
+  const loading = loadingProducts || loadingSuppliers;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -39,10 +43,6 @@ const Products = () => {
 
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   // Validação em tempo real
   useEffect(() => {
@@ -87,29 +87,6 @@ const Products = () => {
   const handleFieldChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setTouched(prev => ({ ...prev, [field]: true }));
-  };
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [productsRes, suppliersRes] = await Promise.all([
-        api.get('/products'),
-        api.get('/suppliers')
-      ]);
-      
-      if (productsRes.data.success) {
-        setProducts(productsRes.data.data.products || []);
-      }
-      
-      if (suppliersRes.data.success) {
-        setSuppliers(suppliersRes.data.data.suppliers || []);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar produtos e fornecedores');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const resetForm = () => {
@@ -161,48 +138,49 @@ const Products = () => {
       return;
     }
 
-    try {
-      const payload = {
-        name: formData.name.trim(),
-        supplierId: formData.supplier,
-        unit: formData.unit.trim(),
-        stock: parseFloat(formData.stock),
-        minStock: parseFloat(formData.minStock),
-        price: parseFloat(formData.price),
-        description: formData.description.trim()
-      };
+    const payload = {
+      name: formData.name.trim(),
+      supplierId: formData.supplier,
+      unit: formData.unit.trim(),
+      stock: parseFloat(formData.stock),
+      minStock: parseFloat(formData.minStock),
+      price: parseFloat(formData.price),
+      description: formData.description.trim()
+    };
 
+    try {
       if (editingProduct) {
-        await api.put(`/products/${editingProduct.id}`, payload);
+        await new Promise((resolve, reject) => {
+          updateProduct({ id: editingProduct.id, productData: payload }, {
+            onSuccess: resolve,
+            onError: reject
+          });
+        });
         toast.success('Produto atualizado com sucesso!');
       } else {
-        await api.post('/products', payload);
+        await new Promise((resolve, reject) => {
+          addProduct(payload, { onSuccess: resolve, onError: reject });
+        });
         toast.success('Produto criado com sucesso!');
       }
-      
       closeModal();
-      loadData();
     } catch (error) {
-      console.error('Erro ao salvar produto:', error.response?.data || error.message);
-      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
-        const errorMessages = error.response.data.errors.map(err => err.msg).join('\n');
-        toast.error(errorMessages);
-      } else {
-        const msg = error.response?.data?.message || 'Erro ao salvar produto. Verifique os dados e tente novamente.';
-        toast.error(msg);
-      }
+      console.error('Erro ao salvar produto:', error);
+      const msg = error?.response?.data?.message || 'Erro ao salvar produto. Verifique os dados e tente novamente.';
+      toast.error(msg);
     }
   };
 
   const handleDelete = async (productId) => {
     if (window.confirm('Tem certeza que deseja excluir este produto?')) {
       try {
-        await api.delete(`/products/${productId}`);
+        await new Promise((resolve, reject) => {
+          deleteProduct(productId, { onSuccess: resolve, onError: reject });
+        });
         toast.success('Produto excluído com sucesso!');
-        loadData();
       } catch (error) {
-        console.error('Erro ao excluir produto:', error.response?.data || error.message);
-        const msg = error.response?.data?.message || 'Erro ao excluir produto.';
+        console.error('Erro ao excluir produto:', error);
+        const msg = error?.response?.data?.message || 'Erro ao excluir produto.';
         toast.error(msg);
       }
     }
@@ -238,44 +216,92 @@ const Products = () => {
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          // Usar defval para garantir que células vazias se tornem strings vazias
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-          console.log('📖 Arquivo lido, processando dados...');
 
-          // Pular o cabeçalho (primeira linha)
           const rows = jsonData.slice(1);
-          console.log(`📊 Total de linhas de dados encontradas: ${rows.length}`);
-          
           setUploadProgress(10);
-          
-          // Processar dados em lotes
+
+          // Cache local de fornecedores por nome (lowercase) -> id
+          const supplierCache = new Map();
+          (suppliers || []).forEach(s => {
+            if (s?.name && s?.id) supplierCache.set(String(s.name).toLowerCase(), s.id);
+          });
+
           const batchSize = 10;
           let processed = 0;
           let errors = 0;
           
+          // Função local que usa o cache para evitar duplicações
+          const findOrCreateSupplierCached = async (supplierName) => {
+            const key = String(supplierName).toLowerCase();
+            const cached = supplierCache.get(key);
+            if (cached) return cached;
+
+            const existing = (suppliers || []).find(s => s.name.toLowerCase() === key);
+            if (existing) {
+              supplierCache.set(key, existing.id);
+              return existing.id;
+            }
+
+            // cria via mutation e guarda no cache imediatamente
+            const newId = await new Promise((resolve, reject) => {
+              addSupplier({
+                name: supplierName,
+                email: '',
+                phone: '',
+                address: '',
+                city: '',
+                state: '',
+                zip: '',
+                code: `SUP_${Date.now()}`
+              }, {
+                onSuccess: (res) => {
+                  try {
+                    const created = res?.data?.data?.supplier;
+                    if (created?.id) {
+                      supplierCache.set(key, created.id);
+                      resolve(created.id);
+                    } else {
+                      reject(new Error('Resposta de criação de fornecedor sem ID'));
+                    }
+                  } catch (e) {
+                    reject(e);
+                  }
+                },
+                onError: (err) => {
+                  // Se for erro de fornecedor já existente por nome, tenta resgatar do cache/lista
+                  const msg = err?.response?.data?.message || '';
+                  if (msg.includes('Já existe um fornecedor com este nome')) {
+                    const again = (suppliers || []).find(s => s.name.toLowerCase() === key);
+                    if (again?.id) {
+                      supplierCache.set(key, again.id);
+                      resolve(again.id);
+                    } else {
+                      reject(err);
+                    }
+                  } else {
+                    reject(err);
+                  }
+                }
+              });
+            });
+
+            return newId;
+          };
+
           for (let i = 0; i < rows.length; i += batchSize) {
             const batch = rows.slice(i, i + batchSize);
             
             for (const row of batch) {
               if (row.length >= 3) {
-                // Mapeamento correto baseado na estrutura real do Excel
-                // Coluna 0: FORNECEDOR, Coluna 1: PRODUTO, Coluna 2: UNIDADE, Coluna 3: ESTOQUE (opcional)
-                const fornecedor = row[0];  // Primeira coluna
-                const produto = row[1];     // Segunda coluna (índice 1)
-                const unidade = row[2];     // Terceira coluna (índice 2)
-                const estoque = row[3] || 0; // Quarta coluna (índice 3) - opcional
-                
-                console.log(`📝 Processando linha: ${fornecedor} | ${produto} | ${unidade} | ${estoque}`);
+                const fornecedor = row[0];
+                const produto = row[1];
+                const unidade = row[2];
+                const estoque = row[3] || 0;
                 
                 if (fornecedor && produto && unidade) {
                   try {
-                    console.log(`🏭 Criando/verificando fornecedor: ${fornecedor}`);
-                    // Criar ou encontrar fornecedor
-                    let supplierId = await findOrCreateSupplier(fornecedor.trim());
-                    console.log(`✅ Fornecedor processado, ID: ${supplierId}`);
-                    
-                    console.log(`📦 Criando produto: ${produto}`);
-                    // Criar produto
+                    const supplierId = await findOrCreateSupplierCached(fornecedor.trim());
                     await createProduct({
                       name: produto.trim(),
                       supplierId,
@@ -285,30 +311,19 @@ const Products = () => {
                       price: 0,
                       description: `Importado via Excel - ${fornecedor.trim()}`
                     });
-                    console.log(`✅ Produto criado: ${produto}`);
-                    
                     processed++;
                   } catch (error) {
-                    console.error(`❌ Erro ao processar linha ${i + 1}:`, error);
                     errors++;
                   }
-                } else {
-                  console.log(`⚠️ Linha ignorada - dados insuficientes:`, row);
-                  console.log(`🔍 Verificação: fornecedor=${!!fornecedor}, produto=${!!produto}, unidade=${!!unidade}`);
                 }
               }
             }
-            
             setUploadProgress(20 + ((i + batchSize) / rows.length) * 60);
-            await new Promise(resolve => setTimeout(resolve, 100)); // Pequena pausa para não sobrecarregar
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
-          
-          console.log(`🎉 Processamento concluído! Processados: ${processed}, Erros: ${errors}`);
+
           setUploadProgress(100);
-          toast.success(`Upload concluído! ${processed} produtos processados com sucesso.`);
-          
-          // Recarregar dados
-          await loadData();
+          toast.success(`Upload concluído! ${processed} produtos processados com sucesso.${errors ? ` (${errors} erros)` : ''}`);
           setShowUploadModal(false);
           setUploadFile(null);
           
@@ -320,7 +335,6 @@ const Products = () => {
           setUploadProgress(0);
         }
       };
-      
       reader.readAsArrayBuffer(uploadFile);
       
     } catch (error) {
@@ -332,21 +346,15 @@ const Products = () => {
   };
 
   const findOrCreateSupplier = async (supplierName) => {
-    try {
-      console.log(`🔍 Procurando fornecedor existente: ${supplierName}`);
-      // Tentar encontrar fornecedor existente
-      const existingSupplier = suppliers.find(s => 
-        s.name.toLowerCase() === supplierName.toLowerCase()
-      );
-      
-      if (existingSupplier) {
-        console.log(`✅ Fornecedor encontrado: ${existingSupplier.name} (ID: ${existingSupplier.id})`);
-        return existingSupplier.id;
-      }
-      
-      console.log(`🆕 Criando novo fornecedor: ${supplierName}`);
-      // Criar novo fornecedor
-      const response = await api.post('/suppliers', {
+    // Mantido por compatibilidade, não usado no fluxo novo
+    const existingSupplier = (suppliers || []).find(s => 
+      s.name.toLowerCase() === supplierName.toLowerCase()
+    );
+    if (existingSupplier) {
+      return existingSupplier.id;
+    }
+    return await new Promise((resolve, reject) => {
+      addSupplier({
         name: supplierName,
         email: '',
         phone: '',
@@ -355,35 +363,24 @@ const Products = () => {
         state: '',
         zip: '',
         code: `SUP_${Date.now()}`
+      }, {
+        onSuccess: (res) => {
+          try {
+            const newId = res?.data?.data?.supplier?.id;
+            resolve(newId);
+          } catch (e) {
+            reject(e);
+          }
+        },
+        onError: reject
       });
-      
-      console.log(`📡 Resposta da API suppliers:`, response.data);
-      
-      if (response.data.success) {
-        const newSupplier = response.data.data.supplier;
-        console.log(`✅ Fornecedor criado com sucesso:`, newSupplier);
-        setSuppliers(prev => [...prev, newSupplier]);
-        return newSupplier.id;
-      }
-      
-      throw new Error('Falha ao criar fornecedor');
-      
-    } catch (error) {
-      console.error(`❌ Erro ao criar fornecedor ${supplierName}:`, error);
-      throw error;
-    }
+    });
   };
 
   const createProduct = async (productData) => {
-    try {
-      console.log(`📦 Enviando produto para API:`, productData);
-      const response = await api.post('/products', productData);
-      console.log(`📡 Resposta da API products:`, response.data);
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erro ao criar produto:`, error);
-      throw error;
-    }
+    return await new Promise((resolve, reject) => {
+      addProduct(productData, { onSuccess: resolve, onError: reject });
+    });
   };
 
   const downloadTemplate = () => {
@@ -401,16 +398,15 @@ const Products = () => {
     XLSX.writeFile(wb, 'template_produtos.xlsx');
   };
 
-  const filteredProducts = products.filter(product => {
+  const filteredProducts = (products || []).filter(product => {
     const productName = product.name?.toLowerCase() || '';
-    const supplierName = suppliers.find(s => s.id === product.supplierId)?.name?.toLowerCase() || '';
+    const supplierName = (suppliers || []).find(s => s.id === product.supplierId)?.name?.toLowerCase() || '';
     const search = searchTerm.toLowerCase();
-    
     return productName.includes(search) || supplierName.includes(search);
   });
 
   const getSupplierName = (supplierId) => {
-    const supplier = suppliers.find(s => s.id === supplierId);
+    const supplier = (suppliers || []).find(s => s.id === supplierId);
     return supplier ? supplier.name : 'Fornecedor não encontrado';
   };
 
@@ -605,7 +601,7 @@ const Products = () => {
                     }`}
                   >
                     <option value="">Selecione um fornecedor</option>
-                    {suppliers.map(supplier => (
+                    {(suppliers || []).map(supplier => (
                       <option key={supplier.id} value={supplier.id}>
                         {supplier.name}
                       </option>
