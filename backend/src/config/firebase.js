@@ -9,12 +9,58 @@ const useEnvCredentials = Boolean(process.env.FIREBASE_PRIVATE_KEY && process.en
 const normalizePrivateKey = (key) => {
   if (!key) return key;
   let normalized = key;
+  
+  // Log para debug (remover depois)
+  console.log('🔑 FIREBASE_PRIVATE_KEY (primeiros 50 chars):', normalized.substring(0, 50));
+  
   // Remover aspas envolventes acidentais
   if ((normalized.startsWith('"') && normalized.endsWith('"')) || (normalized.startsWith("'") && normalized.endsWith("'"))) {
     normalized = normalized.slice(1, -1);
   }
-  // Converter \n em quebras reais
+  
+  // Converter \n em quebras reais (múltiplas variações)
   normalized = normalized.replace(/\\n/g, '\n');
+  normalized = normalized.replace(/\\\\n/g, '\n');
+  
+  // Garantir que começa e termina corretamente
+  if (!normalized.includes('-----BEGIN PRIVATE KEY-----')) {
+    console.log('❌ Chave não tem header BEGIN válido');
+    return normalized;
+  }
+  
+  if (!normalized.includes('-----END PRIVATE KEY-----')) {
+    console.log('❌ Chave não tem footer END válido');
+    return normalized;
+  }
+  
+  // Limpar espaços e quebras extras
+  normalized = normalized.trim();
+  
+  // Se ainda estiver em uma linha, tentar quebrar manualmente
+  if (!normalized.includes('\n')) {
+    console.log('🔧 Tentando quebrar chave em linha única...');
+    normalized = normalized
+      .replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n')
+      .replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----');
+    
+    // Quebrar o conteúdo base64 em linhas de 64 caracteres
+    const lines = [];
+    const content = normalized.split('\n');
+    content.forEach(line => {
+      if (line.startsWith('-----')) {
+        lines.push(line);
+      } else if (line.length > 64) {
+        for (let i = 0; i < line.length; i += 64) {
+          lines.push(line.substring(i, i + 64));
+        }
+      } else if (line.length > 0) {
+        lines.push(line);
+      }
+    });
+    normalized = lines.join('\n');
+  }
+  
+  console.log('✅ Chave normalizada com', normalized.split('\n').length, 'linhas');
   return normalized;
 };
 
