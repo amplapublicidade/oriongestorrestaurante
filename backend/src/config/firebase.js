@@ -1,5 +1,4 @@
 const admin = require('firebase-admin');
-const path = require('path');
 
 // Inicializar Firebase Admin SDK
 // Preferência: GOOGLE_APPLICATION_CREDENTIALS (ADC). Se não houver, usar variáveis FIREBASE_*.
@@ -10,8 +9,10 @@ const normalizePrivateKey = (key) => {
   if (!key) return key;
   let normalized = key;
   
-  // Log para debug (remover depois)
-  console.log('🔑 FIREBASE_PRIVATE_KEY (primeiros 50 chars):', normalized.substring(0, 50));
+  // Log para debug
+  console.log('🔑 FIREBASE_PRIVATE_KEY (tamanho):', normalized.length, 'chars');
+  console.log('🔑 Início:', normalized.substring(0, 50));
+  console.log('🔑 Final:', normalized.substring(normalized.length - 50));
   
   // Remover aspas envolventes acidentais
   if ((normalized.startsWith('"') && normalized.endsWith('"')) || (normalized.startsWith("'") && normalized.endsWith("'"))) {
@@ -22,15 +23,17 @@ const normalizePrivateKey = (key) => {
   normalized = normalized.replace(/\\n/g, '\n');
   normalized = normalized.replace(/\\\\n/g, '\n');
   
-  // Garantir que começa e termina corretamente
+  // Garantir que começa corretamente
   if (!normalized.includes('-----BEGIN PRIVATE KEY-----')) {
     console.log('❌ Chave não tem header BEGIN válido');
-    return normalized;
+    throw new Error('FIREBASE_PRIVATE_KEY deve começar com -----BEGIN PRIVATE KEY-----');
   }
   
+  // Se não tem footer, a chave está truncada
   if (!normalized.includes('-----END PRIVATE KEY-----')) {
-    console.log('❌ Chave não tem footer END válido');
-    return normalized;
+    console.log('❌ Chave não tem footer END válido - variável truncada no Render');
+    console.log('💡 Solução: Use Secret File ou verifique se a chave completa foi colada');
+    throw new Error('FIREBASE_PRIVATE_KEY está incompleta - falta -----END PRIVATE KEY-----');
   }
   
   // Limpar espaços e quebras extras
@@ -69,23 +72,32 @@ if (preferADC) {
     credential: admin.credential.applicationDefault(),
     databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://orion-gestor.firebaseio.com'
   });
+  console.log('✅ Firebase inicializado via GOOGLE_APPLICATION_CREDENTIALS');
 } else if (useEnvCredentials) {
-  const serviceAccountLike = {
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-    private_key: normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY),
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    client_id: process.env.FIREBASE_CLIENT_ID,
-    auth_uri: process.env.FIREBASE_AUTH_URI || 'https://accounts.google.com/o/oauth2/auth',
-    token_uri: process.env.FIREBASE_TOKEN_URI || 'https://oauth2.googleapis.com/token',
-    auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL || 'https://www.googleapis.com/oauth2/v1/certs',
-    client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
-  };
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccountLike),
-    databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://orion-gestor.firebaseio.com'
-  });
+  try {
+    const serviceAccountLike = {
+      project_id: process.env.FIREBASE_PROJECT_ID,
+      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+      private_key: normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY),
+      client_email: process.env.FIREBASE_CLIENT_EMAIL,
+      client_id: process.env.FIREBASE_CLIENT_ID,
+      auth_uri: process.env.FIREBASE_AUTH_URI || 'https://accounts.google.com/o/oauth2/auth',
+      token_uri: process.env.FIREBASE_TOKEN_URI || 'https://oauth2.googleapis.com/token',
+      auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL || 'https://www.googleapis.com/oauth2/v1/certs',
+      client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
+    };
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccountLike),
+      databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://orion-gestor.firebaseio.com'
+    });
+    console.log('✅ Firebase inicializado via variáveis FIREBASE_*');
+  } catch (error) {
+    console.error('❌ Erro ao inicializar Firebase via variáveis de ambiente:', error.message);
+    console.log('💡 Recomendação: Configure Secret File no Render com GOOGLE_APPLICATION_CREDENTIALS');
+    throw error;
+  }
 } else {
+  console.log('⚠️ Nenhuma credencial Firebase encontrada, tentando Application Default...');
   admin.initializeApp({
     credential: admin.credential.applicationDefault(),
     databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://orion-gestor.firebaseio.com'
@@ -102,4 +114,4 @@ module.exports = {
   admin,
   db,
   auth
-}; 
+};
