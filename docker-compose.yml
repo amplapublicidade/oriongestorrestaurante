@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # Redis Cache
   redis:
@@ -23,28 +25,17 @@ services:
       dockerfile: Dockerfile
     container_name: orion-backend
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "3001:3001"
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      JWT_SECRET: orion_jwt_secret_key_2025_super_secure
-      FRONTEND_URL: http://localhost:8000
-      # Firebase Configuration
-      FIREBASE_TYPE: service_account
-      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
-      FIREBASE_PRIVATE_KEY_ID: ${FIREBASE_PRIVATE_KEY_ID}
-      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
-      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
-      FIREBASE_CLIENT_ID: ${FIREBASE_CLIENT_ID}
-      FIREBASE_AUTH_URI: https://accounts.google.com/o/oauth2/auth
-      FIREBASE_TOKEN_URI: https://oauth2.googleapis.com/token
-      FIREBASE_AUTH_PROVIDER_X509_CERT_URL: https://www.googleapis.com/oauth2/v1/certs
-      FIREBASE_CLIENT_X509_CERT_URL: ${FIREBASE_CLIENT_X509_CERT_URL}
-      FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL}
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      # Monta o código-fonte para live-reloading (opcional, para desenvolvimento)
+      - ./backend/src:/app/src
+      # Monta o arquivo de credenciais para dentro do container (essencial)
+      - ./backend/src/config/firebase-credentials.json:/app/config/firebase-credentials.json:ro
+    depends_on:
+      - redis
     networks:
       - orion-network
     healthcheck:
@@ -59,22 +50,20 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Passa a variável de ambiente para o build do React
+        REACT_APP_API_URL: ${REACT_APP_API_URL}
     container_name: orion-frontend
     restart: unless-stopped
     ports:
-      - "8000:8000"
-    environment:
-        REACT_APP_API_URL: http://localhost:3001/api
-        REACT_APP_NODE_ENV: production
-    volumes:
-      - /app/node_modules
-    networks:
-      - orion-network
+      - "8000:80" # Expõe a porta 80 do container (Nginx) na porta 8000 da sua máquina
     depends_on:
       backend:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - orion-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000"]
       interval: 30s
@@ -87,4 +76,4 @@ volumes:
 
 networks:
   orion-network:
-    driver: bridge 
+    driver: bridge

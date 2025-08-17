@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # Frontend
+  orion-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: orion-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - orion-backend
+    networks:
+      - orion-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`212.85.2.16`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+  # Backend
+  orion-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: orion-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - REDIS_URL=redis://orion-redis:6379
+    volumes:
+      - ./orion-gestor-firebase-adminsdk-fbsvc-ac432ef525.json:/app/orion-gestor-firebase-adminsdk-fbsvc-ac432ef525.json:ro
+    depends_on:
+      - orion-redis
+    networks:
+      - orion-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`212.85.2.16`) && PathPrefix(`/api`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3001"
+
+  # Redis
+  orion-redis:
+    image: redis:7-alpine
+    container_name: orion-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-orionredis2024}
+    volumes:
+      - orion_redis_data:/data
+    networks:
+      - orion-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-orionredis2024}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=false"
+
+  # Nginx Proxy
+  orion-proxy:
+    image: nginx:alpine
+    container_name: orion-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - orion_ssl_certs:/etc/ssl/certs
+    depends_on:
+      - orion-frontend
+      - orion-backend
+    networks:
+      - orion-network
+    labels:
+      - "traefik.enable=false"
+
+networks:
+  orion-network:
+    driver: bridge
+    name: orion-network
+
+volumes:
+  orion_redis_data:
+    driver: local
+    name: orion_redis_data
+  orion_ssl_certs:
+    driver: local
+    name: orion_ssl_certs

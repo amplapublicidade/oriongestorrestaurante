@@ -1,0 +1,10 @@
+/*    /index.html   200
+# Configuração para React Router
+/*    /index.html   200
+
+# Redirecionar para HTTPS
+http://localhost:3000 https://localhost:3000 301
+http://localhost:8000 https://localhost:8000 301
+
+# Configurações de cache
+/api/*  https://api.orion.com/api/:splat  200 
